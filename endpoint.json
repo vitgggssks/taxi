@@ -1,0 +1,10 @@
+{
+  "service": "rukh-api",
+  "updatedAt": "2026-11-19T17:00:00Z",
+  "note": "Публічні адреси демо-API. Застосунок читає цей файл на старті й сам обирає живу адресу. Оновлюється при зміні тунелю — APK перезбирати не потрібно.",
+  "endpoints": [
+    "https://urw-mysql-displaying-earn.trycloudflare.com",
+    "https://san-mississippi-rights-property.trycloudflare.com",
+    "https://appropriate-allowing-stuff-movers.trycloudflare.com"
+  ]
+}

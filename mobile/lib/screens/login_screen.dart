@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/api.dart';
+import '../core/discovery.dart';
 import '../core/session.dart';
 import '../theme.dart';
 
@@ -24,11 +25,31 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _codeSent = false;
   bool? _serverOk;
   String? _serverInfo;
+  bool _discovering = false;
+  int _discoveredCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _checkServer();
+    _bootstrap();
+  }
+
+  /// Старт: спершу беремо свіжий список адрес API з endpoint.json у репозиторії
+  /// (стабільне посилання), потім перевіряємо звʼязок. Так демо-вхід працює,
+  /// навіть якщо адреса тунелю змінилась після збірки APK.
+  Future<void> _bootstrap() async {
+    if (mounted) setState(() => _discovering = true);
+    try {
+      final found = await Discovery().endpoints();
+      if (found.isNotEmpty) {
+        widget.session.api.setBaseUrls(<String>[...found, ...widget.session.api.baseUrls]);
+        _discoveredCount = found.length;
+      }
+    } catch (_) {
+      /* виявлення адреси не має ламати вхід */
+    }
+    if (mounted) setState(() => _discovering = false);
+    await _checkServer();
   }
 
   /// Пінг `/api/health`, щоб користувач одразу бачив, чи живий сервер,
@@ -101,23 +122,47 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Демо-вхід одним дотиком.
+  /// Мережеві збої (обрив тунелю, 5xx) не показуємо одразу: робимо до 3 спроб
+  /// з паузою, і на кожній спробі клієнт перемикається на наступну адресу API.
   Future<void> _demoLogin({String? role, String? phone}) async {
+    const attempts = 3;
     setState(() {
       _busy = true;
       _error = null;
+      _info = null;
     });
-    try {
-      final res = await widget.session.api.post('/api/auth/demo-login', {
-        if (role != null) 'role': role,
-        if (phone != null) 'phone': phone,
-      });
-      final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
-      await widget.session.signIn('${map['token']}', Map<String, dynamic>.from(map['user'] as Map));
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    for (var attempt = 1; attempt <= attempts; attempt++) {
+      if (attempt > 1 && mounted) {
+        setState(() => _info = 'Зʼєднуємось із сервером… спроба $attempt/$attempts');
+        await Future<void>.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+      }
+      try {
+        final res = await widget.session.api.post('/api/auth/demo-login', {
+          if (role != null) 'role': role,
+          if (phone != null) 'phone': phone,
+        });
+        final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+        await widget.session.signIn('${map['token']}', Map<String, dynamic>.from(map['user'] as Map));
+        if (mounted) setState(() => _busy = false);
+        return;
+      } on ApiException catch (e) {
+        final retryable = e.status == 0 || e.status >= 500;
+        if (!retryable || attempt == attempts) {
+          if (mounted) {
+            setState(() {
+              _error = e.message;
+              _info = null;
+              if (e.status == 0 || e.status >= 500) _serverOk = false;
+            });
+          }
+          break;
+        }
+        if (mounted) setState(() => _serverOk = false);
+      }
     }
+    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _editServer() async {
@@ -175,7 +220,13 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-                if (_serverInfo != null)
+                if (_discovering)
+                  const Text('Шукаю актуальну адресу сервера…',
+                      style: TextStyle(color: RukhTheme.muted, fontSize: 11))
+                else if (_discoveredCount > 0)
+                  Text('Адреси API оновлено з репозиторію ($_discoveredCount)',
+                      style: const TextStyle(color: RukhTheme.muted, fontSize: 11))
+                else if (_serverInfo != null)
                   Text(
                     _serverInfo!,
                     style: const TextStyle(color: RukhTheme.muted, fontSize: 11),
@@ -315,6 +366,18 @@ class _LoginScreenState extends State<LoginScreen> {
               const Expanded(child: Divider()),
             ]),
             const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _busy ? null : () => _demoLogin(role: 'passenger'),
+                icon: _busy
+                    ? const SizedBox(
+                        width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: RukhTheme.ink))
+                    : const Icon(Icons.bolt),
+                label: Text(_busy ? 'Зʼєднуємось…' : 'Демо-вхід одним дотиком'),
+              ),
+            ),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,

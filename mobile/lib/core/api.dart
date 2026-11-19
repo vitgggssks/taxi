@@ -35,6 +35,18 @@ class ApiClient {
 
   String get baseUrl => baseUrls[_active];
 
+  /// Повна заміна списку адрес (використовується автовиявленням через GitHub).
+  void setBaseUrls(List<String> urls) {
+    final seen = <String>{};
+    final list = <String>[
+      for (final url in urls)
+        if (url.trim().isNotEmpty && seen.add(url.trim())) url.trim(),
+    ];
+    if (list.isEmpty) return;
+    baseUrls = list;
+    _active = 0;
+  }
+
   set baseUrl(String value) {
     baseUrls = <String>[value];
     _active = 0;
