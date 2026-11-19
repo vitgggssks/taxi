@@ -15,7 +15,6 @@ import 'package:rukh_mobile/core/format.dart';
 import 'package:rukh_mobile/core/models.dart';
 import 'package:rukh_mobile/core/realtime.dart';
 
-const _passengerPhone = '+380671112233';
 /// Кандидати-водії з сіду. Оффер отримують 3 найближчі, тому перебираємо,
 /// доки не знайдемо того, кому диспетчер справді надіслав пропозицію.
 const _driverPhones = [
@@ -103,7 +102,6 @@ Future<void> main(List<String> args) async {
 
     // --- водій: пропозиція → прийняття → статус ---
     Map<String, dynamic>? liveOffer;
-    final matches = <Map<String, dynamic>>[];
     var driverWithOffer = '';
     for (final phone in _driverPhones) {
       final driverSession = await login(driverApi, phone: phone);
@@ -112,7 +110,6 @@ Future<void> main(List<String> args) async {
       final match = offers.where((o) => '${asMap(o['order'])['id']}' == order.id).toList();
       if (match.isNotEmpty) {
         liveOffer = match.first;
-        matches.addAll(match);
         driverWithOffer = phone;
         break;
       }
