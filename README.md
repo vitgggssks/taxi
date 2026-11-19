@@ -28,8 +28,9 @@ API      →  /api/*       (REST + WebSocket)
 WebSocket, історія, гаманець, підтримка; для водія — онлайн/офлайн, пропозиції з таймером,
 просування статусів, заробіток.
 
-- **Готовий APK**: [Releases → android-v0.1.0](../../releases) (збирається автоматично у
-  GitHub Actions на кожен push у `main`, що змінює `mobile/**`).
+- **Готовий APK**: [Releases → android-v0.1.0](../../releases/tag/android-v0.1.0) —
+  universal APK (arm64-v8a / armeabi-v7a / x86_64), збирається автоматично у GitHub Actions
+  на кожен push у `main`, що змінює `mobile/**` (analyze → test → build → Release).
 - **Збірка**: `cd mobile && flutter build apk --release --dart-define=API_BASE_URL=<url-вашого-API>`
 - **Адреса API** змінюється і в самому застосунку: екран входу → іконка сервера.
 - Деталі, підпис для Play Store і список обмежень — у [`mobile/README.md`](mobile/README.md).

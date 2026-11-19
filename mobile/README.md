@@ -67,6 +67,21 @@ keytool -genkey -v -keystore ~/rukh-release.jks -keyalg RSA -keysize 2048 -valid
 `android/key.properties` (не комітити) + `signingConfig` у `android/app/build.gradle.kts`,
 а в CI — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` як secrets.
 
+## Перевірка проти живого API
+
+```bash
+# у першому терміналі
+cd server && npx tsx src/index.ts
+
+# у другому — той самий data-шар, що в APK, але з командного рядка
+cd mobile && dart run tool/live_check.dart http://127.0.0.1:3000
+```
+
+`tool/live_check.dart` використовує `ApiClient`, `Realtime` і моделі з `lib/core`, тобто
+перевіряє реальний клієнтський код: вхід, міста, пошук адрес, ціни по класах, створення
+замовлення, пропозицію водієві, прийняття, зміну статусу, realtime-події, скасування,
+гаманець та історію.
+
 ## Структура
 
 ```

@@ -95,7 +95,7 @@ WebSocket `/ws?token=…`. Канали: `user:<id>`, `role:<role>`, `order:<id>
 | SVG-мапа | Google Maps Platform (тайли, геокодинг, route matrix) | `web/app/map.js`, `lib/geo.ts` |
 | Симулятор еквайрингу | LiqPay/Fondy/Stripe | `captureWithGateway()` |
 | OTP у відповіді API | SMS-провайдер (TurboSMS/Twilio) | `modules/auth.ts` (одна функція) |
-| Web-клієнти | Flutter 3 (iOS/Android) поверх того ж API | клієнтський шар |
+| Web-клієнти | Flutter 3 (Android уже в `mobile/`, iOS — далі) поверх того ж API | клієнтський шар |
 
 Схема БД уже написана в портативному підмножині SQL; PostGIS-версія лежить у `docs/03-data-model.sql`.
 
