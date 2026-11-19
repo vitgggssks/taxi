@@ -16,7 +16,12 @@ API      →  /api/*       (REST + WebSocket)
 |---|---|---|
 | ![](docs/screenshots/passenger-order.png) | ![](docs/screenshots/passenger-tracking.png) | ![](docs/screenshots/driver-offers.png) |
 
-| Адмінка: дашборд | Live-мапа | Тарифи |
+| Мапа в застосунку (стиль OnTaxi) | Адмінка: дашборд | Live-мапа |
+|---|---|---|---|
+| ![](docs/screenshots/map-style.png) | ![](docs/screenshots/admin-dashboard.png) | ![](docs/screenshots/admin-live-map.png) |
+
+| Адмінка: тарифи |
+|---|
 |---|---|---|
 | ![](docs/screenshots/admin-dashboard.png) | ![](docs/screenshots/admin-live-map.png) | ![](docs/screenshots/admin-tariffs.png) |
 
@@ -32,12 +37,30 @@ WebSocket, історія, гаманець, підтримка; для воді
   universal APK (arm64-v8a / armeabi-v7a / x86_64), збирається автоматично у GitHub Actions
   на кожен push у `main`, що змінює `mobile/**` (analyze → test → build → Release).
 - **Збірка**: `cd mobile && flutter build apk --release --dart-define=API_BASE_URL=<url-вашого-API>`
+- **Демо-сервер для APK**: збірка v0.2.0 за замовчуванням дивиться на публічний
+  демо-API (змінна репозиторію `API_BASE_URL`), тому демо-вхід працює одразу після
+  встановлення. Адресу можна змінити на екрані входу; для постійного хосту див.
+  розділ «Розгортання».
 - **Мапа** в застосунку: справжні тайли OpenStreetMap зі світлим фільтром у стилі OnTaxi
   (зелена точка подачі, фіолетова — призначення, бурштинова зупинка, темний маршрут),
   жестова навігація, кеш тайлів у памʼяті. Клієнт не залежить від платних SDK.
 - **Адреса API** змінюється і в самому застосунку: екран входу → іконка сервера;
   на екрані входу є індикатор «Сервер доступний / недоступний» із повторною перевіркою.
 - Деталі, підпис для Play Store і список обмежень — у [`mobile/README.md`](mobile/README.md).
+
+## Розгортання API
+
+`docker-compose.yml` — цільовий стек (Postgres/PostGIS, Redis, RabbitMQ, API).
+Швидкий публічний демо-доступ без інфраструктури: тунель до локального сервера
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:3000   # отримайте https://<name>.trycloudflare.com
+```
+
+Отриману адресу впишіть у *Settings → Secrets and variables → Actions → Variables*
+як `API_BASE_URL` — наступна збірка APK ходитиме туди. Це тимчасовий варіант
+(тунель живе, поки живий процес); для постійного — VPS/Render/Railway/Fly з диском
+під SQLite або Postgres з `docs/03-data-model.sql`.
 
 ## Швидкий старт
 
