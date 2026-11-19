@@ -356,7 +356,7 @@ class _OrderScreenState extends State<OrderScreen> {
                       label,
                       style: TextStyle(
                         fontSize: 13,
-                        color: passed ? Colors.white : RukhTheme.muted,
+                        color: passed ? RukhTheme.ink : RukhTheme.muted,
                         fontWeight: passed ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),

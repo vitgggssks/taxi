@@ -90,7 +90,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       _load();
                     },
                     selectedColor: RukhTheme.accent,
-                    labelStyle: TextStyle(color: selected ? RukhTheme.ink : Colors.white, fontSize: 12),
+                    labelStyle: TextStyle(color: selected ? RukhTheme.ink : RukhTheme.muted, fontSize: 12),
                     backgroundColor: RukhTheme.surfaceAlt,
                     side: BorderSide.none,
                   ),
@@ -159,7 +159,7 @@ class _OrderTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: RukhTheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          border: Border.all(color: RukhTheme.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

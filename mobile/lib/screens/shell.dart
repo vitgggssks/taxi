@@ -48,7 +48,7 @@ class _ShellState extends State<Shell> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: RukhTheme.surface,
-          border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+          border: const Border(top: BorderSide(color: RukhTheme.border)),
         ),
         child: BottomNavigationBar(
           currentIndex: _index,

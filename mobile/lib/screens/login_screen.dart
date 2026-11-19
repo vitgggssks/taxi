@@ -39,17 +39,22 @@ class _LoginScreenState extends State<LoginScreen> {
   /// навіть якщо адреса тунелю змінилась після збірки APK.
   Future<void> _bootstrap() async {
     if (mounted) setState(() => _discovering = true);
+    await _refreshEndpoints();
+    if (mounted) setState(() => _discovering = false);
+    await _checkServer();
+  }
+
+  /// Перечитує список живих адрес API і ставить їх першими в черзі.
+  /// Ніколи не кидає: якщо GitHub недоступний — лишаються вшиті адреси.
+  Future<void> _refreshEndpoints() async {
     try {
       final found = await Discovery().endpoints();
-      if (found.isNotEmpty) {
-        widget.session.api.setBaseUrls(<String>[...found, ...widget.session.api.baseUrls]);
-        _discoveredCount = found.length;
-      }
+      if (found.isEmpty) return;
+      widget.session.api.setBaseUrls(<String>[...found, ...widget.session.api.baseUrls]);
+      _discoveredCount = found.length;
     } catch (_) {
       /* виявлення адреси не має ламати вхід */
     }
-    if (mounted) setState(() => _discovering = false);
-    await _checkServer();
   }
 
   /// Пінг `/api/health`, щоб користувач одразу бачив, чи живий сервер,
@@ -126,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Мережеві збої (обрив тунелю, 5xx) не показуємо одразу: робимо до 3 спроб
   /// з паузою, і на кожній спробі клієнт перемикається на наступну адресу API.
   Future<void> _demoLogin({String? role, String? phone}) async {
-    const attempts = 3;
+    const attempts = 5;
     setState(() {
       _busy = true;
       _error = null;
@@ -135,6 +140,9 @@ class _LoginScreenState extends State<LoginScreen> {
     for (var attempt = 1; attempt <= attempts; attempt++) {
       if (attempt > 1 && mounted) {
         setState(() => _info = 'Зʼєднуємось із сервером… спроба $attempt/$attempts');
+        // Перед повторною спробою перечитуємо endpoint.json: якщо тунель впав,
+        // там уже може бути свіжа адреса (її публікує вартовий на сервері).
+        await _refreshEndpoints();
         await Future<void>.delayed(const Duration(seconds: 3));
         if (!mounted) return;
       }
@@ -423,7 +431,7 @@ class _DemoChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(color: RukhTheme.border),
         ),
         child: Text(label, style: const TextStyle(fontSize: 13)),
       ),

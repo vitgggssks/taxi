@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rukh_mobile/core/api.dart';
 import 'package:rukh_mobile/main.dart' show kDefaultBaseUrl;
@@ -90,8 +91,10 @@ void main() {
   });
 
   test('кольори статусів визначені', () {
-    expect(statusColor('completed'), RukhTheme.accent);
+    // у світлій темі «завершено» — темно-зелений (жовтий на білому не читається)
+    expect(statusColor('completed'), const Color(0xFF0B7A48));
     expect(statusColor('canceled'), RukhTheme.danger);
+    expect(statusColor('searching'), const Color(0xFF8F5B00));
   });
 }
 

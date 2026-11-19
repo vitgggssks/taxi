@@ -179,7 +179,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                     money(txn.amountCents),
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
-                                      color: positive ? RukhTheme.accent : Colors.white,
+                                      color: positive ? RukhTheme.success : RukhTheme.ink,
                                     ),
                                   ),
                                 ],

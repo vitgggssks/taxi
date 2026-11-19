@@ -2,46 +2,87 @@ import 'package:flutter/material.dart';
 
 import 'core/format.dart';
 
+/// Палітра в тонах оригінального OnTaxi: жовтий #FFD000 + чорний на білому.
+/// (Основний бренд-колір OnTaxi зчитано з їхнього сайту: #ffd000 / #ffc40d.)
 class RukhTheme {
-  static const Color accent = Color(0xFF9BE64B);
-  static const Color ink = Color(0xFF0B0F0D);
-  static const Color surface = Color(0xFF141A17);
-  static const Color surfaceAlt = Color(0xFF1B2320);
-  static const Color muted = Color(0xFF8FA098);
-  static const Color danger = Color(0xFFFF6B6B);
-  static const Color warning = Color(0xFFFFC46B);
+  /// Бренд-жовтий OnTaxi.
+  static const Color accent = Color(0xFFFFD000);
 
-  static ThemeData dark() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: accent,
-      brightness: Brightness.dark,
-    ).copyWith(
+  /// Світло-жовта підкладка (бейджі, виділення).
+  static const Color accentSoft = Color(0xFFFFF4C2);
+
+  /// Основний текст / чорні елементи.
+  static const Color ink = Color(0xFF14171A);
+
+  /// Картки, поля, панелі.
+  static const Color surface = Color(0xFFFFFFFF);
+
+  /// Другорядний фон (поля вводу, чипи, смуги).
+  static const Color surfaceAlt = Color(0xFFF1F3F5);
+
+  /// Фон екрана.
+  static const Color background = Color(0xFFF6F7F9);
+
+  static const Color muted = Color(0xFF66707A);
+  static const Color danger = Color(0xFFC9302C);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color success = Color(0xFF12B76A);
+
+  /// Ледь помітна рамка карток/списків.
+  static const Color border = Color(0x14000000);
+
+  /// Тло основних кнопок із жовтим акцентом.
+  static const Color onAccent = ink;
+
+  static ThemeData light() {
+    final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: Brightness.light).copyWith(
       primary: accent,
       onPrimary: ink,
+      primaryContainer: accentSoft,
+      onPrimaryContainer: ink,
       surface: surface,
+      onSurface: ink,
       secondary: warning,
       error: danger,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: ink,
+      scaffoldBackgroundColor: background,
+      canvasColor: background,
       cardColor: surface,
+      splashFactory: InkSparkle.splashFactory,
       appBarTheme: const AppBarTheme(
-        backgroundColor: ink,
+        backgroundColor: background,
+        foregroundColor: ink,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         elevation: 0,
+        titleTextStyle: TextStyle(color: ink, fontSize: 20, fontWeight: FontWeight.w800),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: ink,
           minimumSize: const Size.fromHeight(52),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: ink),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ink,
+          side: const BorderSide(color: border),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceAlt,
+        hintStyle: const TextStyle(color: muted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -54,24 +95,34 @@ class RukhTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         margin: EdgeInsets.zero,
       ),
+      iconTheme: const IconThemeData(color: ink),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: ink),
       snackBarTheme: const SnackBarThemeData(
-        backgroundColor: surfaceAlt,
+        backgroundColor: ink,
         contentTextStyle: TextStyle(color: Colors.white),
         behavior: SnackBarBehavior.floating,
       ),
-      dividerTheme: DividerThemeData(color: Colors.white.withValues(alpha: 0.06), space: 1),
+      dividerTheme: const DividerThemeData(color: border, space: 1),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dialogTheme: const DialogThemeData(backgroundColor: surface, surfaceTintColor: Colors.transparent),
+      listTileTheme: const ListTileThemeData(iconColor: ink, textColor: ink),
     );
   }
 }
 
+/// Кольори статусів — у світлій темі потрібні темніші відтінки, ніж «чистий»
+/// акцент, інакше текст чипа не читається на білому.
 Color statusColor(String status) => switch (status) {
-      'searching' || 'offered' => RukhTheme.warning,
+      'searching' || 'offered' => const Color(0xFF8F5B00),
       'no_drivers' || 'canceled' || 'expired' => RukhTheme.danger,
-      'completed' => RukhTheme.accent,
-      _ => const Color(0xFF7FC8FF),
+      'completed' => const Color(0xFF0B7A48),
+      _ => const Color(0xFF1F6FEB),
     };
 
-/// Монограма бренду (без зовнішніх ассетів).
+/// Монограма бренду (без зовнішніх ассетів) — жовтий квадрат із чорною «Р».
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 40, this.label = 'Р'});
 
@@ -111,12 +162,12 @@ class StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         statusLabel(status),
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -137,7 +188,10 @@ class SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: RukhTheme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: RukhTheme.border),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,11 +224,12 @@ class ErrorBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: RukhTheme.danger.withValues(alpha: 0.12),
+        color: RukhTheme.danger.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: RukhTheme.danger.withValues(alpha: 0.35)),
+        border: Border.all(color: RukhTheme.danger.withValues(alpha: 0.30)),
       ),
       child: Row(
         children: [

@@ -104,7 +104,7 @@ class _AddressSheetState extends State<_AddressSheet> {
               width: 44,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: RukhTheme.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

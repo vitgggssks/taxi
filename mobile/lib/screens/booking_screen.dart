@@ -429,7 +429,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 await _loadCatalog();
               },
               selectedColor: RukhTheme.accent,
-              labelStyle: TextStyle(color: selected ? RukhTheme.ink : Colors.white, fontWeight: FontWeight.w600),
+              labelStyle: TextStyle(color: selected ? RukhTheme.ink : RukhTheme.muted, fontWeight: FontWeight.w600),
               backgroundColor: RukhTheme.surfaceAlt,
               side: BorderSide.none,
             ),
@@ -482,7 +482,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                   address?.label ?? 'Вказати адресу',
                                   style: TextStyle(
                                     fontSize: 15,
-                                    color: address == null ? RukhTheme.muted : Colors.white,
+                                    color: address == null ? RukhTheme.muted : RukhTheme.ink,
                                   ),
                                 ),
                               ],
@@ -504,7 +504,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       padding: const EdgeInsets.only(left: 4),
                       child: Row(
                         children: [
-                          Container(width: 2, height: 10, color: Colors.white.withValues(alpha: 0.12)),
+                          Container(width: 2, height: 10, color: Colors.black.withValues(alpha: 0.12)),
                         ],
                       ),
                     ),
@@ -654,7 +654,7 @@ class _BookingScreenState extends State<BookingScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: selected ? RukhTheme.accent : Colors.white,
+                                color: selected ? RukhTheme.ink : RukhTheme.muted,
                               ),
                             ),
                             if (quote != null && (quote.surge > 1 || quote.isNight))
@@ -821,7 +821,7 @@ class _BookingScreenState extends State<BookingScreen> {
               if (value) setState(() => _payment = entry.key);
             },
             selectedColor: RukhTheme.accent,
-            labelStyle: TextStyle(color: selected ? RukhTheme.ink : Colors.white),
+            labelStyle: TextStyle(color: selected ? RukhTheme.ink : RukhTheme.muted),
             backgroundColor: RukhTheme.surfaceAlt,
             side: BorderSide.none,
           );

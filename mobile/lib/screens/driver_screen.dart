@@ -729,7 +729,7 @@ class _DriverScreenState extends State<DriverScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: amount >= 0 ? RukhTheme.accent : Colors.white,
+                          color: amount >= 0 ? RukhTheme.success : RukhTheme.ink,
                         )),
                   ],
                 ),

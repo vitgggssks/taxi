@@ -45,7 +45,7 @@ class RukhApp extends StatelessWidget {
     return MaterialApp(
       title: 'РУХ',
       debugShowCheckedModeBanner: false,
-      theme: RukhTheme.dark(),
+      theme: RukhTheme.light(),
       builder: (context, child) => MediaQuery.withClampedTextScaling(
         minScaleFactor: 0.9,
         maxScaleFactor: 1.3,
