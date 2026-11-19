@@ -20,7 +20,10 @@ export function createDb(file = process.env.DB_FILE ?? join(here, '../../data/ta
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  db.exec(readFileSync(join(here, '../schema.sql'), 'utf8'));
+  // У serverless-збірці (Vercel) схема інлайниться в бандл і передається через
+  // SCHEMA_SQL — файлової системи поруч із функцією немає.
+  const schemaSql = process.env.SCHEMA_SQL ?? readFileSync(join(here, '../schema.sql'), 'utf8');
+  db.exec(schemaSql);
   return db;
 }
 

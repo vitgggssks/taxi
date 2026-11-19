@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build:vercel",
+  "installCommand": "npm install --no-audit --no-fund && npm --prefix server install --omit=dev --ignore-scripts --no-audit --no-fund",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.mjs": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "cache-control", "value": "no-store" },
+        { "key": "access-control-allow-origin", "value": "*" }
+      ]
+    }
+  ]
+}

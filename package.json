@@ -8,7 +8,15 @@
     "start": "npm --prefix server start",
     "test": "npm --prefix server test",
     "typecheck": "npm --prefix server run typecheck",
-    "reset-demo": "node server/scripts/reset-demo.mjs"
+    "reset-demo": "node server/scripts/reset-demo.mjs",
+    "build:vercel": "node scripts/build-vercel.mjs",
+    "deploy:vercel:build": "npm --prefix server install --omit=dev --ignore-scripts && npm run build:vercel"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
+  }
 }
