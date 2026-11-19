@@ -25,6 +25,12 @@ API      →  /api/*       (REST + WebSocket)
 |---|---|---|
 | ![](docs/screenshots/admin-dashboard.png) | ![](docs/screenshots/admin-live-map.png) | ![](docs/screenshots/admin-tariffs.png) |
 
+### Стиль мапи (світлий, як в OnTaxi)
+
+| маршрут | міжмісто | зум |
+| --- | --- | --- |
+| ![](docs/screenshots/map-route.png) | ![](docs/screenshots/map-intercity.png) | ![](docs/screenshots/map-zoom-preview.png) |
+
 ## Android-застосунок (Flutter)
 
 У теці [`mobile/`](mobile/README.md) — справжній Flutter-застосунок пасажира **і** водія
