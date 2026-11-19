@@ -1,0 +1,11 @@
+# `package:flutter/material.dart` позначений застарілим у Flutter 3.49+ на користь
+# `package:material_ui/material_ui.dart`. Міграцію зробимо окремим PR, щоб не
+# змішувати її з функціональними змінами.
+analyzer:
+  errors:
+    unused_import: error
+    unused_local_variable: warning
+    deprecated_member_use: ignore
+  exclude:
+    - build/**
+    - android/**

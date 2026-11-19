@@ -1,0 +1,91 @@
+name: Android APK
+
+# Збирає release-APK застосунку РУХ і публікує його в GitHub Releases.
+# Адреса API задається змінною репозиторію API_BASE_URL
+# (Settings → Secrets and variables → Actions → Variables).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build apk
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Flutter 3.50
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Build APK (release)
+        run: >
+          flutter build apk --release
+          --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'http://10.0.2.2:3000' }}
+
+      - name: Collect APK
+        run: |
+          ls -lh build/app/outputs/flutter-apk/
+          cp build/app/outputs/flutter-apk/app-release.apk rukh-${GITHUB_SHA::7}.apk
+          cp build/app/outputs/flutter-apk/app-release.apk rukh-android.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rukh-android-apk
+          path: |
+            mobile/rukh-android.apk
+            mobile/rukh-*.apk
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v0.1.0
+          name: РУХ · Android 0.1.0
+          make_latest: true
+          files: mobile/rukh-android.apk
+          body: |
+            **РУХ — Android-застосунок (universal APK, debug-підпис).**
+
+            Збірка з коміту `${{ github.sha }}`.
+
+            Встановлення: завантажте `rukh-android.apk` на телефон → дозвольте
+            встановлення з невідомих джерел → відкрийте застосунок.
+
+            Перший запуск: екран входу → іконка сервера (праворуч угорі) →
+            вкажіть адресу API, наприклад `http://192.168.0.10:3000`
+            (для емулятора — `http://10.0.2.2:3000`). Далі: вхід за номером
+            з OTP або кнопки «демо-доступ».
+
+            APK підписано debug-ключем — для публікації в Play Store потрібен
+            власний keystore (див. mobile/README.md).

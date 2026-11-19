@@ -20,6 +20,20 @@ API      →  /api/*       (REST + WebSocket)
 |---|---|---|
 | ![](docs/screenshots/admin-dashboard.png) | ![](docs/screenshots/admin-live-map.png) | ![](docs/screenshots/admin-tariffs.png) |
 
+## Android-застосунок (Flutter)
+
+У теці [`mobile/`](mobile/README.md) — справжній Flutter-застосунок пасажира **і** водія
+(роль визначає акаунт): OTP-вхід, замовлення з 5 зупинками, класи й живі ціни, опції,
+промокоди, «плюс/мінус», попереднє замовлення, доставка посилки, трекінг статусів через
+WebSocket, історія, гаманець, підтримка; для водія — онлайн/офлайн, пропозиції з таймером,
+просування статусів, заробіток.
+
+- **Готовий APK**: [Releases → android-v0.1.0](../../releases) (збирається автоматично у
+  GitHub Actions на кожен push у `main`, що змінює `mobile/**`).
+- **Збірка**: `cd mobile && flutter build apk --release --dart-define=API_BASE_URL=<url-вашого-API>`
+- **Адреса API** змінюється і в самому застосунку: екран входу → іконка сервера.
+- Деталі, підпис для Play Store і список обмежень — у [`mobile/README.md`](mobile/README.md).
+
 ## Швидкий старт
 
 ```bash
