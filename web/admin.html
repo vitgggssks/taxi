@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>РУХ · Адмінпанель</title>
+  <link rel="stylesheet" href="/app/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%237c5cff'/><text x='50' y='68' font-size='52' font-family='sans-serif' font-weight='bold' text-anchor='middle' fill='white'>А</text></svg>" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Р</div>
+        <div>
+          <div class="brand-name">РУХ</div>
+          <div class="brand-sub">control center</div>
+        </div>
+      </div>
+      <nav id="nav"></nav>
+      <div style="margin-top:auto" class="col">
+        <a class="nav-item" href="/" target="_blank">↗ Пасажирський застосунок</a>
+        <a class="nav-item" href="/driver" target="_blank">↗ Застосунок водія</a>
+        <div class="nav-item" id="logoutBtn">⎋ Вийти</div>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <div>
+          <h1 id="pageTitle">Дашборд</h1>
+          <small class="muted" id="pageSub">Огляд платформи в реальному часі</small>
+        </div>
+        <div class="row" id="pageActions"></div>
+      </div>
+      <div id="view"></div>
+    </main>
+  </div>
+  <script type="module" src="/app/admin.js"></script>
+</body>
+</html>

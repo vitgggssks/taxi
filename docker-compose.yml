@@ -1,0 +1,52 @@
+# Цільовий інфраструктурний стек платформи.
+# Поточний код із коробки працює на SQLite і не потребує нічого з цього;
+# сервіси тут — для переходу на прод-архітектуру (див. docs/02-architecture.md).
+version: '3.9'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: rukh
+      POSTGRES_PASSWORD: rukh
+      POSTGRES_DB: rukh
+    ports: ['5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docs/03-data-model.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rukh']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6379:6379']
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: ['redisdata:/data']
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports: ['5672:5672', '15672:15672']
+    environment:
+      RABBITMQ_DEFAULT_USER: rukh
+      RABBITMQ_DEFAULT_PASS: rukh
+
+  api:
+    build: ./server
+    environment:
+      PORT: 3000
+      BIND_HOST: 0.0.0.0
+      DATABASE_URL: postgres://rukh:rukh@postgres:5432/rukh
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://rukh:rukh@rabbitmq:5672
+      APP_SECRET: ${APP_SECRET:-dev-secret-change-me}
+    ports: ['3000:3000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      rabbitmq: { condition: service_started }
+
+volumes:
+  pgdata:
+  redisdata:
