@@ -10,6 +10,16 @@
 API      →  /api/*       (REST + WebSocket)
 ```
 
+## Як це виглядає
+
+| Пасажир: замовлення | Пасажир: трекінг | Водій: пропозиції |
+|---|---|---|
+| ![](docs/screenshots/passenger-order.png) | ![](docs/screenshots/passenger-tracking.png) | ![](docs/screenshots/driver-offers.png) |
+
+| Адмінка: дашборд | Live-мапа | Тарифи |
+|---|---|---|
+| ![](docs/screenshots/admin-dashboard.png) | ![](docs/screenshots/admin-live-map.png) | ![](docs/screenshots/admin-tariffs.png) |
+
 ## Швидкий старт
 
 ```bash
