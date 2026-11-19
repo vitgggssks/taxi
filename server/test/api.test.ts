@@ -760,3 +760,97 @@ describe('проксі-сумісність запитів (content-type)', () =
     assert.equal(JSON.parse(res.body).error.code, 'FST_ERR_CTP_INVALID_MEDIA_TYPE');
   });
 });
+
+/** Завантаження файлів: фото вручення посилки, документи водія. */
+describe('uploads (фото вручення, документи)', () => {
+  // 1x1 PNG
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+
+  it('приймає PNG і віддає його за посиланням', async () => {
+    const up = await api('POST', '/api/uploads', { dataUrl: `data:image/png;base64,${PNG}` }, passengerToken);
+    assert.equal(up.status, 200, up.raw);
+    assert.match(up.body.url, /^\/uploads\/up_.+\.png$/);
+    assert.equal(up.body.mime, 'image/png');
+
+    const file = await app.inject({ method: 'GET', url: up.body.url });
+    assert.equal(file.statusCode, 200);
+    assert.equal(file.headers['content-type'], 'image/png');
+    assert.ok(file.rawPayload.length > 50);
+  });
+
+  it('відхиляє текст замість зображення', async () => {
+    const up = await api('POST', '/api/uploads', { dataUrl: Buffer.from('hello world').toString('base64') }, passengerToken);
+    assert.equal(up.status, 422, up.raw);
+    assert.equal(up.body.error.code, 'unprocessable');
+  });
+
+  it('не віддає файли поза каталогом uploads', async () => {
+    const res = await app.inject({ method: 'GET', url: '/uploads/../../package.json' });
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('документ водія зберігається у профілі', async () => {
+    const session = await login('driver', '+380671000101');
+    const up = await api('POST', '/api/uploads', { dataUrl: `data:image/png;base64,${PNG}` }, session.token);
+    assert.equal(up.status, 200, up.raw);
+    const doc = await api('POST', '/api/driver/documents', { type: 'license', fileUrl: up.body.url }, session.token);
+    assert.equal(doc.status, 200, doc.raw);
+    const me = await api('GET', '/api/driver/me', undefined, session.token);
+    assert.ok(me.body.documents.some((d: any) => d.file_url === up.body.url && d.type === 'license'));
+  });
+
+  it('доставка: коди, фото вручення, завершення', async () => {
+    resetWorld();
+    const ride = await api('POST', '/api/orders', {
+      cityId: 'city_kyiv',
+      classId: 'cls_delivery',
+      serviceKind: 'delivery',
+      points: [KYIV_PICKUP, KYIV_DROPOFF],
+      paymentMethod: 'cash',
+      delivery: {
+        senderName: 'Олена', senderPhone: '+380671112233',
+        recipientName: 'Богдан', recipientPhone: '+380671112244',
+        weightKg: 3.5, description: 'Книги',
+      },
+    }, passengerToken);
+    assert.equal(ride.status, 200, ride.raw);
+    const orderId = ride.body.order.id;
+    const delivery = ride.body.order.delivery;
+    assert.ok(delivery, 'немає блоку delivery у відповіді');
+    assert.match(delivery.pickup_code, /^\d{4}$/);
+    assert.match(delivery.dropoff_code, /^\d{4}$/);
+    assert.equal(delivery.weight_kg, 3.5);
+
+    const offer = offerFor(orderId);
+    const driverToken = await tokenForDriver(offer.driver_id);
+    await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, driverToken);
+
+    const wrong = await api('POST', `/api/orders/${orderId}/delivery/pickup`, { code: '0000' }, driverToken);
+    assert.equal(wrong.status, 422, wrong.raw);
+
+    const pickup = await api('POST', `/api/orders/${orderId}/delivery/pickup`, { code: delivery.pickup_code }, driverToken);
+    assert.equal(pickup.status, 200, pickup.raw);
+    assert.equal(pickup.body.order.status, 'in_progress');
+
+    const up = await api('POST', '/api/uploads', { dataUrl: `data:image/png;base64,${PNG}` }, driverToken);
+    const dropoff = await api('POST', `/api/orders/${orderId}/delivery/dropoff`,
+      { code: delivery.dropoff_code, photoUrl: up.body.url }, driverToken);
+    assert.equal(dropoff.status, 200, dropoff.raw);
+    assert.equal(dropoff.body.order.status, 'completed');
+    assert.equal(dropoff.body.order.delivery.photo_proof_url, up.body.url);
+    assert.ok(dropoff.body.order.delivery.delivered_at);
+  });
+
+  it('доставка понад 20 кг не створюється', async () => {
+    const res = await api('POST', '/api/orders', {
+      cityId: 'city_kyiv',
+      classId: 'cls_delivery',
+      serviceKind: 'delivery',
+      points: [KYIV_PICKUP, KYIV_DROPOFF],
+      paymentMethod: 'cash',
+      delivery: { senderName: 'А', senderPhone: '+380671112233', recipientName: 'Б', recipientPhone: '+380671112244', weightKg: 25 },
+    }, passengerToken);
+    assert.equal(res.status, 400, res.raw);
+    assert.equal(res.body.error.code, 'bad_request');
+  });
+});

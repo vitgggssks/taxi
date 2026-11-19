@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/format.dart';
 import '../core/models.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../core/uploads.dart';
 import '../core/realtime.dart';
 import '../core/session.dart';
 import '../theme.dart';
@@ -24,12 +27,14 @@ class DriverScreen extends StatefulWidget {
 }
 
 class _DriverScreenState extends State<DriverScreen> {
+  late final Uploads _uploads = Uploads(widget.api);
   bool _loading = true;
   String? _error;
   DriverProfile? _profile;
   List<Order> _activeOrders = [];
   List<Offer> _offers = [];
   Map<String, dynamic> _earnings = <String, dynamic>{};
+  List<Map<String, dynamic>> _documents = <Map<String, dynamic>>[];
   bool _busy = false;
 
   Realtime? _realtime;
@@ -88,6 +93,7 @@ class _DriverScreenState extends State<DriverScreen> {
         _activeOrders = orders;
         _offers = offers;
         _earnings = earnings;
+        _documents = asMapList(me['documents']);
         _secondsLeft.clear();
         for (final offer in offers) {
           _secondsLeft[offer.id] = offer.secondsLeft;
@@ -194,14 +200,115 @@ class _DriverScreenState extends State<DriverScreen> {
       ),
     );
     if (code == null || code.isEmpty) return;
+
+    // Крок 2: фото вручення (вимога ТЗ — підтвердження передачі посилки).
+    final body = <String, Object>{'code': code};
+    if (step == 'dropoff') {
+      final photoUrl = await _deliveryPhoto(order);
+      if (photoUrl != null) body['photoUrl'] = photoUrl;
+    }
+
     setState(() => _busy = true);
     try {
-      await widget.api.post('/api/orders/${order.id}/delivery/$step', {'code': code});
+      await widget.api.post('/api/orders/${order.id}/delivery/$step', body);
       await _load(silent: true);
     } on ApiException catch (e) {
       if (mounted) showError(context, e);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Фото підтвердження вручення: камера / галерея / без фото.
+  Future<String?> _deliveryPhoto(Order order) async {
+    final source = await showModalBottomSheet<ImageSource?>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text('Фото вручення посилки', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Зробити фото'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Обрати з галереї'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Без фото'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return null;
+    setState(() => _busy = true);
+    try {
+      final url = await _uploads.pickAndUpload(source: source);
+      return url;
+    } on ApiException catch (e) {
+      if (mounted) showError(context, e);
+      return null;
+    } catch (e) {
+      if (mounted) showError(context, 'Не вдалося завантажити фото: $e');
+      return null;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Додавання документа водія: вибір типу → фото → upload → привʼязка до профілю.
+  Future<void> _addDocument(String type) async {
+    final url = await _pickDocumentPhoto();
+    if (url == null) return;
+    setState(() => _busy = true);
+    try {
+      await widget.api.post('/api/driver/documents', {'type': type, 'fileUrl': url});
+      await _load(silent: true);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Документ надіслано на перевірку')));
+    } on ApiException catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<String?> _pickDocumentPhoto() async {
+    final source = await showModalBottomSheet<ImageSource?>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Сфотографувати документ'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Обрати фото з галереї'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return null;
+    try {
+      return await _uploads.pickAndUpload(source: source);
+    } on ApiException catch (e) {
+      if (mounted) showError(context, e);
+      return null;
     }
   }
 
@@ -248,6 +355,8 @@ class _DriverScreenState extends State<DriverScreen> {
                   if (_error != null) ...[ErrorBox(message: _error!), const SizedBox(height: 12)],
                   if (profile != null) _statusCard(profile),
                   const SizedBox(height: 12),
+                  _documentsCard(),
+                  const SizedBox(height: 12),
                   if (_activeOrders.isNotEmpty || _offers.isNotEmpty) ...[
                     _workMap(),
                     const SizedBox(height: 12),
@@ -293,6 +402,71 @@ class _DriverScreenState extends State<DriverScreen> {
         ],
         route: points,
         height: 200,
+      ),
+    );
+  }
+
+  static const Map<String, String> _docLabels = <String, String>{
+    'license': 'Посвідчення водія',
+    'vehicle_registration': 'Техпаспорт авто',
+    'vehicle_photo': 'Фото автомобіля',
+    'id_card': 'ID-картка',
+    'insurance': 'Страховка',
+  };
+
+  Widget _documentsCard() {
+    final byType = <String, Map<String, dynamic>>{};
+    for (final doc in _documents) {
+      final type = '${doc['type']}';
+      final current = byType[type];
+      if (current == null || '${doc['created_at']}'.compareTo('${current['created_at']}') > 0) byType[type] = doc;
+    }
+    final ready = byType.length == _docLabels.length;
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.badge_outlined, size: 18, color: RukhTheme.muted),
+              const SizedBox(width: 8),
+              const Text('Документи', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Text('${byType.length}/${_docLabels.length}',
+                  style: const TextStyle(fontSize: 13, color: RukhTheme.muted)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final entry in _docLabels.entries) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  byType.containsKey(entry.key) ? Icons.check_circle : Icons.radio_button_unchecked,
+                  size: 16,
+                  color: byType.containsKey(entry.key) ? RukhTheme.accent : RukhTheme.muted,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(entry.value, style: const TextStyle(fontSize: 13)),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : () => _addDocument(entry.key),
+                  child: Text(byType.containsKey(entry.key) ? 'Оновити' : 'Додати'),
+                ),
+              ],
+            ),
+          ],
+          if (!ready)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'Після завантаження всіх документів адміністратор верифікує профіль — '
+                'без цього вихід на лінію недоступний.',
+                style: TextStyle(fontSize: 12, color: RukhTheme.muted, height: 1.35),
+              ),
+            ),
+        ],
       ),
     );
   }

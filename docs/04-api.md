@@ -173,3 +173,14 @@
 6. водій: `POST /api/driver/orders/:id/status` (`driver_arriving` → `waiting` → `in_progress` → `completed`)
 7. сервер: `chargeOrder()` + `settleOrder()` (комісія, заробіток, кешбек)
 8. пасажир: `POST /api/orders/:id/rate`
+
+## Файли
+
+| Метод | Шлях | Опис |
+| --- | --- | --- |
+| POST | `/api/uploads` | завантаження файлу: `{ dataUrl }` (base64 або data URL) → `{ url, mime, size }`. Ліміт 3 МБ, типи визначаються за магічними байтами: PNG, JPEG, WEBP, PDF |
+| GET | `/uploads/<name>` | віддача файлу (immutable cache), захист від `..` |
+
+Файл використовується як `photoUrl` у `POST /api/orders/:id/delivery/dropoff`
+(фото вручення посилки) і як `fileUrl` у `POST /api/driver/documents`
+(посвідчення, техпаспорт, фото авто, ID-картка, страховка).

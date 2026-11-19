@@ -8,6 +8,7 @@ import 'package:rukh_mobile/theme.dart';
 /// Компіляційний та логічний smoke-тест: імпорт theme.dart тягне material_ui,
 /// моделі перевіряють розбір реальних відповідей API.
 void main() {
+  _extraUploadTests();
   test('гроші форматуються в гривнях з копійками', () {
     expect(money(0), '0 ₴');
     expect(money(8609), '86.09 ₴');
@@ -91,5 +92,49 @@ void main() {
   test('кольори статусів визначені', () {
     expect(statusColor('completed'), RukhTheme.accent);
     expect(statusColor('canceled'), RukhTheme.danger);
+  });
+}
+
+void _extraUploadTests() {
+  test('absoluteUrl дописує шлях файлу до активної адреси API', () {
+    final api = ApiClient(baseUrl: 'https://api.example.com/');
+    expect(api.absoluteUrl('/uploads/up_1.png'), 'https://api.example.com/uploads/up_1.png');
+    expect(api.absoluteUrl('uploads/up_1.png'), 'https://api.example.com/uploads/up_1.png');
+    expect(api.absoluteUrl('https://cdn.example.com/a.png'), 'https://cdn.example.com/a.png');
+    api.close();
+  });
+
+  test('доставка: Order розбирає коди та фото вручення', () {
+    final order = Order.fromJson({
+      'id': 'ord_d',
+      'number': '261119-7001',
+      'status': 'completed',
+      'service_kind': 'delivery',
+      'payment_method': 'cash',
+      'payment_status': 'paid',
+      'quoted_price_cents': 12500,
+      'final_price_cents': 12500,
+      'distance_m': 3100,
+      'duration_s': 600,
+      'created_at': '2026-11-19 15:00:00',
+      'points': [
+        {'seq': 0, 'kind': 'pickup', 'address': 'Хрещатик, 1', 'lat': 50.45, 'lng': 30.52},
+        {'seq': 1, 'kind': 'dropoff', 'address': 'Gulliver', 'lat': 50.43, 'lng': 30.52},
+      ],
+      'delivery': {
+        'sender_name': 'Олена',
+        'recipient_name': 'Богдан',
+        'weight_kg': 3.5,
+        'pickup_code': '1234',
+        'dropoff_code': '8765',
+        'photo_proof_url': '/uploads/up_9.png',
+        'delivered_at': '2026-11-19 15:20:00',
+      },
+    });
+    expect(order.delivery, isNotNull);
+    expect(order.delivery!['pickup_code'], '1234');
+    expect(order.delivery!['dropoff_code'], '8765');
+    expect(order.delivery!['photo_proof_url'], '/uploads/up_9.png');
+    expect(serviceLabel(order.serviceKind), 'Доставка');
   });
 }

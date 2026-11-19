@@ -12,6 +12,7 @@ import { registerDriverRoutes } from './modules/driver.js';
 import { registerAdminRoutes } from './modules/admin.js';
 import { registerCorporateRoutes, registerSupportRoutes } from './modules/corporate.js';
 import { registerGeoRoutes } from './modules/geo.js';
+import { registerUploadRoutes } from './modules/uploads.js';
 import { seedDatabase } from './seed.js';
 import { all } from './lib/db.js';
 import { runDispatchTick, tryDispatch } from './lib/dispatch.js';
@@ -92,6 +93,7 @@ export function buildApp(options: AppOptions = {}): { app: FastifyInstance; db: 
   registerDriverRoutes(app, db);
   registerAdminRoutes(app, db);
   registerGeoRoutes(app, db);
+  registerUploadRoutes(app, db);
   registerCorporateRoutes(app, db);
   registerSupportRoutes(app, db);
 

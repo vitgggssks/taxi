@@ -7,6 +7,7 @@ import '../core/session.dart';
 import '../theme.dart';
 import '../widgets/address_picker.dart';
 import 'shell.dart';
+import 'support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.api, required this.session});
@@ -331,16 +332,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   if (_tickets.isEmpty)
                     const Text('Звернень немає', style: TextStyle(color: RukhTheme.muted, fontSize: 12)),
-                  ..._tickets.take(3).map(
-                        (t) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.confirmation_number_outlined, size: 16, color: RukhTheme.muted),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text('${t['subject']}', style: const TextStyle(fontSize: 12))),
-                              Text('${t['status']}', style: const TextStyle(color: RukhTheme.muted, fontSize: 11)),
-                            ],
+                  ..._tickets.map(
+                        (t) => InkWell(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SupportScreen(
+                                api: widget.api,
+                                ticketId: '${t['id']}',
+                                subject: '${t['subject']}',
+                              ),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.confirmation_number_outlined, size: 16, color: RukhTheme.muted),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text('${t['subject']}', style: const TextStyle(fontSize: 12))),
+                                Text('${t['status']}', style: const TextStyle(color: RukhTheme.muted, fontSize: 11)),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right, size: 16, color: RukhTheme.muted),
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -527,6 +527,56 @@ class _OrderScreenState extends State<OrderScreen> {
               Expanded(child: _codeBox('Код отримувача', '${delivery['dropoff_code']}')),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            delivery['delivered_at'] != null
+                ? 'Доставлено ${'${delivery['delivered_at']}'.split('T').first} ${'${delivery['delivered_at']}'.split('T').last.substring(0, 5)}'
+                : delivery['picked_up_at'] != null
+                    ? 'Посилку забрано курʼєром, прямує до отримувача'
+                    : 'Коди покажіть відправнику та отримувачу — без них курʼєр не передасть посилку',
+            style: const TextStyle(color: RukhTheme.muted, fontSize: 12, height: 1.35),
+          ),
+          if (delivery['photo_proof_url'] != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (context) => Dialog(
+                  child: InteractiveViewer(
+                    child: Image.network(widget.api.absoluteUrl('${delivery['photo_proof_url']}'),
+                        errorBuilder: (_, __, ___) => const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text('Не вдалося завантажити фото'),
+                            )),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      widget.api.absoluteUrl('${delivery['photo_proof_url']}'),
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 64,
+                        height: 64,
+                        color: RukhTheme.surfaceAlt,
+                        child: const Icon(Icons.image_not_supported_outlined, size: 18),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Фото вручення — натисніть, щоб збільшити',
+                        style: TextStyle(fontSize: 12, color: RukhTheme.muted)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

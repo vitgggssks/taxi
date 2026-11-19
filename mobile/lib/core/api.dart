@@ -45,6 +45,13 @@ class ApiClient {
   final HttpClient _http = HttpClient()..connectionTimeout = const Duration(seconds: 12);
   bool _closed = false;
 
+  /// Абсолютне посилання на файл, що лежить на сервері (`/uploads/...`).
+  String absoluteUrl(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    final base = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    return '$base${path.startsWith('/') ? '' : '/'}$path';
+  }
+
   Uri _uri(String path, [Map<String, String>? query]) {
     final trimmed = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     final base = Uri.parse(trimmed);
