@@ -8,6 +8,7 @@ import '../core/models.dart';
 import '../core/session.dart';
 import '../theme.dart';
 import '../widgets/address_picker.dart';
+import '../widgets/osm_map.dart';
 import 'order_screen.dart';
 import 'shell.dart';
 
@@ -381,6 +382,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   _buildServiceSelector(),
                   const SizedBox(height: 12),
                   _buildRouteCard(),
+                  if (_routeReady) ...[
+                    const SizedBox(height: 12),
+                    _buildMapCard(),
+                  ],
                   const SizedBox(height: 12),
                   if (_serviceKind == 'delivery') ...[_buildDeliveryCard(), const SizedBox(height: 12)],
                   if (_quoteError != null) ...[ErrorBox(message: _quoteError!), const SizedBox(height: 12)],
@@ -533,6 +538,31 @@ class _BookingScreenState extends State<BookingScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMapCard() {
+    final selected = _points.whereType<GeoAddress>().toList();
+    final points = selected.map((p) => MapPoint(p.lat, p.lng)).toList();
+    final focus = MapFocus.fit(points, viewport: const Size(340, 210));
+    final markers = <MapMarker>[];
+    if (selected.isNotEmpty) {
+      markers.add(MapPins.pickupPin(points.first, label: 'Звідки'));
+      if (points.length > 1) markers.add(MapPins.dropoffPin(points.last, label: 'Куди'));
+      for (var i = 1; i < points.length - 1; i++) {
+        markers.add(MapPins.stopPin(points[i]));
+      }
+    }
+    return SectionCard(
+      title: 'Мапа маршруту',
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
+      child: OsmMap(
+        center: focus.center,
+        zoom: focus.zoom,
+        markers: markers,
+        route: points,
+        height: 210,
       ),
     );
   }

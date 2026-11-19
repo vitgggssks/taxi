@@ -73,8 +73,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v0.1.0
-          name: РУХ · Android 0.1.0
+          tag_name: android-v0.2.0
+          name: РУХ · Android 0.2.0
           make_latest: true
           files: mobile/rukh-android.apk
           body: |

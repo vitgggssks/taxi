@@ -139,12 +139,16 @@ class DriverInfo {
       : id = '${j['id']}',
         name = _str(j['name']) ?? 'Водій',
         phone = _str(j['phone']) ?? '',
-        rating = _double(j['rating'] ?? 5);
+        rating = _double(j['rating'] ?? 5),
+        lat = j['lat'] == null ? null : _double(j['lat']),
+        lng = j['lng'] == null ? null : _double(j['lng']);
 
   final String id;
   final String name;
   final String phone;
   final double rating;
+  final double? lat;
+  final double? lng;
 }
 
 class VehicleInfo {

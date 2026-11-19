@@ -22,6 +22,35 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _info;
   bool _busy = false;
   bool _codeSent = false;
+  bool? _serverOk;
+  String? _serverInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkServer();
+  }
+
+  /// Пінг `/api/health`, щоб користувач одразу бачив, чи живий сервер,
+  /// а не ловив «дивну» помилку на демо-вході.
+  Future<void> _checkServer() async {
+    if (mounted) setState(() => _serverOk = null);
+    try {
+      final res = await widget.session.api.get('/api/health');
+      final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+      if (!mounted) return;
+      setState(() {
+        _serverOk = map['ok'] == true;
+        _serverInfo = map['ok'] == true ? '${map['service']} · v${map['version']}' : null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _serverOk = false;
+        _serverInfo = e.message;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -116,7 +145,60 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.session.setBaseUrl(result);
       if (!mounted) return;
       setState(() => _info = 'Сервер: ${widget.session.api.baseUrl}');
+      await _checkServer();
     }
+  }
+
+  Widget _serverBanner() {
+    final ok = _serverOk;
+    final color = ok == null ? RukhTheme.muted : (ok ? RukhTheme.accent : RukhTheme.danger);
+    final label = ok == null
+        ? 'Перевіряю сервер…'
+        : ok
+            ? 'Сервер доступний'
+            : 'Сервер недоступний';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(ok == null ? Icons.sync : (ok ? Icons.check_circle_outline : Icons.cloud_off),
+              size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+                if (_serverInfo != null)
+                  Text(
+                    _serverInfo!,
+                    style: const TextStyle(color: RukhTheme.muted, fontSize: 11),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          if (ok == false)
+            TextButton(
+              onPressed: _editServer,
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: const Text('Змінити', style: TextStyle(fontSize: 12)),
+            ),
+          IconButton(
+            onPressed: _checkServer,
+            icon: const Icon(Icons.refresh, size: 16, color: RukhTheme.muted),
+            tooltip: 'Перевірити ще раз',
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -154,7 +236,9 @@ class _LoginScreenState extends State<LoginScreen> {
               'Сервер: ${api.baseUrl.replaceAll(RegExp(r'^https?://'), '')}',
               style: const TextStyle(color: RukhTheme.muted, fontSize: 12),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+            _serverBanner(),
+            const SizedBox(height: 14),
             if (_error != null) ...[
               ErrorBox(message: _error!),
               const SizedBox(height: 14),
@@ -241,7 +325,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 _DemoChip(label: 'Адмін', onTap: () => _demoLogin(role: 'admin')),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            Text(
+              'Демо-вхід працює лише коли сервер доступний. Якщо банер вище червоний — '
+              'натисніть «Змінити» і вкажіть адресу API (для телефона це IP компʼютера '
+              'у Wi-Fi, наприклад http://192.168.0.10:3000).',
+              style: TextStyle(color: RukhTheme.muted.withValues(alpha: 0.85), fontSize: 11, height: 1.4),
+            ),
+            const SizedBox(height: 12),
             Text(
               'Коди повертає лише demo-режим. У проді — SMS через провайдера, токен '
               'зберігається локально і перевіряється на кожному запиті.',

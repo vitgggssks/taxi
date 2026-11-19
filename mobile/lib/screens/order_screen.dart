@@ -8,6 +8,7 @@ import '../core/models.dart';
 import '../core/realtime.dart';
 import '../core/session.dart';
 import '../theme.dart';
+import '../widgets/osm_map.dart';
 import 'shell.dart';
 
 /// Картка замовлення: живий статус через WebSocket + дії пасажира.
@@ -228,7 +229,9 @@ class _OrderScreenState extends State<OrderScreen> {
                     children: [
                       _statusHeader(order),
                       const SizedBox(height: 12),
-                      if (order.isActive) ...[_timeline(order), const SizedBox(height: 12)],
+                      const SizedBox(height: 12),
+                      _mapCard(order),
+                      if (order.isActive) ...[const SizedBox(height: 12), _timeline(order), const SizedBox(height: 12)],
                       if (order.driver != null) ...[_driverCard(order), const SizedBox(height: 12)],
                       _routeCard(order),
                       const SizedBox(height: 12),
@@ -301,6 +304,33 @@ class _OrderScreenState extends State<OrderScreen> {
         'completed' => Icons.check_circle_outline,
         _ => Icons.cancel_outlined,
       };
+
+  Widget _mapCard(Order order) {
+    final points = order.points.map((p) => MapPoint(p.lat, p.lng)).toList();
+    if (points.isEmpty) return const SizedBox.shrink();
+    final driverPoint = (order.driver?.lat != null && order.driver?.lng != null)
+        ? MapPoint(order.driver!.lat!, order.driver!.lng!)
+        : null;
+    final all = driverPoint == null ? points : [...points, driverPoint];
+    final focus = MapFocus.fit(all, viewport: const Size(340, 230));
+    final markers = <MapMarker>[
+      MapPins.pickupPin(points.first, label: 'Звідки'),
+      if (points.length > 1) MapPins.dropoffPin(points.last, label: 'Куди'),
+      for (var i = 1; i < points.length - 1; i++) MapPins.stopPin(points[i]),
+      if (driverPoint != null) MapPins.driverPin(driverPoint),
+    ];
+    return SectionCard(
+      title: 'На мапі',
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
+      child: OsmMap(
+        center: focus.center,
+        zoom: focus.zoom,
+        markers: markers,
+        route: points,
+        height: 230,
+      ),
+    );
+  }
 
   Widget _timeline(Order order) {
     final current = orderTimeline.indexOf(order.status);

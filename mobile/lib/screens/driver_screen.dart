@@ -8,6 +8,7 @@ import '../core/models.dart';
 import '../core/realtime.dart';
 import '../core/session.dart';
 import '../theme.dart';
+import '../widgets/osm_map.dart';
 import 'shell.dart';
 
 /// Робочий екран водія: онлайн/офлайн, вхідні пропозиції з таймером,
@@ -247,6 +248,10 @@ class _DriverScreenState extends State<DriverScreen> {
                   if (_error != null) ...[ErrorBox(message: _error!), const SizedBox(height: 12)],
                   if (profile != null) _statusCard(profile),
                   const SizedBox(height: 12),
+                  if (_activeOrders.isNotEmpty || _offers.isNotEmpty) ...[
+                    _workMap(),
+                    const SizedBox(height: 12),
+                  ],
                   if (_offers.isNotEmpty) ...[
                     ..._offers.map((offer) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -265,6 +270,30 @@ class _DriverScreenState extends State<DriverScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _workMap() {
+    final order = _activeOrders.isNotEmpty
+        ? _activeOrders.first
+        : (_offers.isNotEmpty ? _offers.first.order : null);
+    if (order == null || order.points.isEmpty) return const SizedBox.shrink();
+    final points = order.points.map((p) => MapPoint(p.lat, p.lng)).toList();
+    final focus = MapFocus.fit(points, viewport: const Size(340, 200));
+    return SectionCard(
+      title: _offers.isEmpty ? 'Ваш маршрут' : 'Замовлення поруч',
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
+      child: OsmMap(
+        center: focus.center,
+        zoom: focus.zoom,
+        markers: [
+          MapPins.pickupPin(points.first, label: 'Клієнт'),
+          if (points.length > 1) MapPins.dropoffPin(points.last, label: 'Фініш'),
+          for (var i = 1; i < points.length - 1; i++) MapPins.stopPin(points[i]),
+        ],
+        route: points,
+        height: 200,
+      ),
     );
   }
 
