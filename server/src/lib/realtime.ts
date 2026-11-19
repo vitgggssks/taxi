@@ -34,8 +34,14 @@ class Hub {
   publish(channels: Channel[], event: string, payload: unknown) {
     const msg = JSON.stringify({ event, payload, at: new Date().toISOString() });
     for (const ch of channels) {
-      for (const ws of this.channels.get(ch) ?? []) {
-        if (ws.readyState === 1) ws.send(msg);
+      for (const ws of [...(this.channels.get(ch) ?? [])]) {
+        if (ws.readyState !== 1) continue;
+        try {
+          ws.send(msg);
+        } catch {
+          // обірваний сокет не має валити бізнес-операцію, що його сповіщає
+          this.leave(ws);
+        }
       }
     }
   }

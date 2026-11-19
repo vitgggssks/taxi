@@ -51,6 +51,7 @@ jobs:
         run: >
           flutter build apk --release
           --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'http://10.0.2.2:3000' }}
+          --dart-define=API_BASE_URL_FALLBACK=${{ vars.API_BASE_URL_FALLBACK || '' }}
 
       - name: Collect APK
         run: |
@@ -73,8 +74,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v0.2.0
-          name: РУХ · Android 0.2.0
+          tag_name: android-v0.2.1
+          name: РУХ · Android 0.2.1
           make_latest: true
           files: mobile/rukh-android.apk
           body: |

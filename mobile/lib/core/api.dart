@@ -19,9 +19,23 @@ class ApiException implements Exception {
 
 /// Тонкий типізований клієнт REST + WebSocket до RUKH API.
 class ApiClient {
-  ApiClient({required this.baseUrl});
+  ApiClient({required String baseUrl, List<String> fallbacks = const <String>[]}) {
+    baseUrls = <String>[baseUrl, ...fallbacks.where((u) => u.trim().isNotEmpty && u != baseUrl)];
+  }
 
-  String baseUrl;
+  /// Список адрес API: перша — основна, решта — резервні. Якщо основна не
+  /// відповідає (мережа/5xx), клієнт автоматично перемикається на наступну.
+  late List<String> baseUrls;
+
+  int _active = 0;
+
+  String get baseUrl => baseUrls[_active];
+
+  set baseUrl(String value) {
+    baseUrls = <String>[value];
+    _active = 0;
+  }
+
   String? token;
 
   final HttpClient _http = HttpClient()..connectionTimeout = const Duration(seconds: 12);
@@ -41,6 +55,23 @@ class ApiClient {
 
   Future<dynamic> send(String method, String path, {Map<String, String>? query, Object? body}) async {
     if (_closed) throw ApiException(0, 'client_closed', 'Клієнт закрито');
+    ApiException? lastError;
+    final attempts = baseUrls.length;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        return await _sendOnce(method, path, query: query, body: body);
+      } on ApiException catch (e) {
+        lastError = e;
+        // фолбек має сенс лише для мережевих збоїв і 5xx (502/503/530 тощо)
+        final retryable = e.status == 0 || e.status >= 500;
+        if (!retryable || attempt == attempts - 1) rethrow;
+        _active = (_active + 1) % attempts;
+      }
+    }
+    throw lastError ?? ApiException(0, 'network', 'Немає звʼязку з сервером');
+  }
+
+  Future<dynamic> _sendOnce(String method, String path, {Map<String, String>? query, Object? body}) async {
     final HttpClientRequest req;
     try {
       req = await _http.openUrl(method, _uri(path, query));
@@ -50,8 +81,11 @@ class ApiClient {
     req.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final t = token;
     if (t != null && t.isNotEmpty) req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $t');
-    if (body != null) {
-      final bytes = utf8.encode(jsonEncode(body));
+    // POST/PATCH/PUT завжди йдуть із JSON-тілом: проксі (Cloudflare тощо)
+    // додають власний content-type до запиту без тіла, і сервер відповідає 415.
+    final needsBody = body != null || method == 'POST' || method == 'PATCH' || method == 'PUT';
+    if (needsBody) {
+      final bytes = utf8.encode(jsonEncode(body ?? const <String, dynamic>{}));
       req.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
       req.contentLength = bytes.length;
       req.add(bytes);

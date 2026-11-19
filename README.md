@@ -58,9 +58,41 @@ cloudflared tunnel --url http://127.0.0.1:3000   # отримайте https://<n
 ```
 
 Отриману адресу впишіть у *Settings → Secrets and variables → Actions → Variables*
-як `API_BASE_URL` — наступна збірка APK ходитиме туди. Це тимчасовий варіант
-(тунель живе, поки живий процес); для постійного — VPS/Render/Railway/Fly з диском
-під SQLite або Postgres з `docs/03-data-model.sql`.
+як `API_BASE_URL` — наступна збірка APK ходитиме туди.
+
+**Резервна адреса.** `API_BASE_URL_FALLBACK` (необовʼязкова змінна) — друга адреса
+API. Якщо основна не відповідає (мережа, 5xx), `ApiClient` сам перемикається на неї
+й далі працює з робочої, тож один впавший тунель не «вбиває» демо.
+
+```bash
+# два незалежні тунелі: основний і резервний
+cloudflared tunnel --url http://127.0.0.1:3000 --protocol http2   # резервний
+```
+
+> Quick tunnel — без гарантій аптайму: адреса ефемерна й вмирає разом із процесом.
+> Для постійного хосту: VPS/Render/Railway/Fly з диском під SQLite або Postgres з
+> `docs/03-data-model.sql`.
+
+### Serverless (Vercel)
+
+```bash
+npm install            # esbuild для бандлу
+npm run build:vercel   # → api/index.mjs + public/index.html
+```
+
+`vercel.json` уже налаштований: `api/index.mjs` — це весь Fastify-API одною
+функцією. Сумісність забезпечують:
+
+* `server/src/db/node-sqlite.mjs` — драйвер `better-sqlite3`-API поверх вбудованого
+  `node:sqlite` (без нативних модулів; вкладені транзакції через `SAVEPOINT`);
+* схема БД інлайниться у бандл (`SCHEMA_SQL`), БД живе у `/tmp` інстансу;
+* диспетчер-цикл заміщено опортуністичним тіком на кожному запиті
+  (`server/src/vercel.ts`), тобто пропозиції, таймаути й планові замовлення
+  працюють і без довгоживучого процесу.
+
+Обмеження demo-режиму на serverless: WebSocket недоступний (клієнти оновлюють
+стан опитуванням), стан скидається після зупинки інстансу, а демо-дані
+пересіваються на холодному старті.
 
 ## Швидкий старт
 

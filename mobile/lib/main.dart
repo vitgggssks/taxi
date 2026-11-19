@@ -15,10 +15,20 @@ const String kDefaultBaseUrl = String.fromEnvironment(
   defaultValue: 'http://10.0.2.2:3000',
 );
 
+/// Резервні адреси (через кому): якщо основна недоступна — клієнт перемкнеться.
+const String kFallbackBaseUrls = String.fromEnvironment('API_BASE_URL_FALLBACK');
+
+List<String> _fallbacks() => kFallbackBaseUrls.isEmpty
+    ? const <String>[]
+    : kFallbackBaseUrls.split(',').map((u) => u.trim()).where((u) => u.isNotEmpty).toList();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final api = ApiClient(baseUrl: prefs.getString('baseUrl') ?? kDefaultBaseUrl);
+  final saved = prefs.getString('baseUrl');
+  final api = saved != null && saved.isNotEmpty
+      ? ApiClient(baseUrl: saved)
+      : ApiClient(baseUrl: kDefaultBaseUrl, fallbacks: _fallbacks());
   final session = Session(api: api, prefs: prefs);
   await session.restore();
   runApp(RukhApp(api: api, session: session));

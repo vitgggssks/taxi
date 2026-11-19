@@ -44,6 +44,22 @@ export function buildApp(options: AppOptions = {}): { app: FastifyInstance; db: 
     if (req.method === 'OPTIONS') return reply.status(204).send();
   });
 
+  // Проксі (Cloudflare quick tunnel) інколи додає content-type до запиту без
+  // тіла — не відповідаємо 415, а трактуємо таке тіло як порожній JSON.
+  app.addContentTypeParser(
+    ['application/octet-stream', 'text/plain'],
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      const text = String(body ?? '').trim();
+      if (!text) return done(null, {});
+      try {
+        done(null, JSON.parse(text));
+      } catch {
+        done(null, {});
+      }
+    },
+  );
+
   app.setErrorHandler((error, req, reply) => {
     if (error instanceof ApiError) {
       return reply.status(error.status).send({ error: { code: error.code, message: error.message, details: error.details } });
@@ -51,6 +67,13 @@ export function buildApp(options: AppOptions = {}): { app: FastifyInstance; db: 
     const anyErr = error as any;
     if (anyErr?.validation) {
       return reply.status(400).send({ error: { code: 'validation_error', message: anyErr.message, details: anyErr.validation } });
+    }
+    // Fastify-помилки рівня протоколузуються зі своїм статусом (415, 413, 400)
+    const status = Number(anyErr?.statusCode);
+    if (Number.isFinite(status) && status >= 400 && status < 500) {
+      return reply.status(status).send({
+        error: { code: anyErr?.code ?? 'bad_request', message: anyErr?.message ?? 'Некоректний запит' },
+      });
     }
     req.log?.error?.(error);
     return reply.status(500).send({ error: { code: 'internal_error', message: 'Внутрішня помилка сервера', details: anyErr?.message } });

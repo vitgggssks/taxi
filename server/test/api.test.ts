@@ -711,3 +711,52 @@ async function tokenForDriver(driverId: string): Promise<string> {
   const session = await login('driver', row.phone);
   return session.token;
 }
+
+/**
+ * Проксі перед API (Cloudflare quick tunnel, мобільні оператори) інколи додає
+ * власний content-type до запиту без тіла. Такі запити не мають ламати бізнес-
+ * операцію й не мають перетворюватись на 500.
+ */
+describe('проксі-сумісність запитів (content-type)', () => {
+  it('прийняття пропозиції без тіла та без content-type', async () => {
+    resetWorld();
+    const ride = await createRide();
+    assert.equal(ride.status, 200, ride.raw);
+    const orderId = ride.body.order.id;
+    const offer = offerFor(orderId);
+    const driverToken = await tokenForDriver(offer.driver_id);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/driver/offers/${offer.id}/accept`,
+      headers: { authorization: `Bearer ${driverToken}` },
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal(JSON.parse(res.body).order.status, 'assigned');
+  });
+
+  it('порожній POST із чужим content-type (octet-stream) не дає 415', async () => {
+    resetWorld();
+    const ride = await createRide();
+    const orderId = ride.body.order.id;
+    const offer = offerFor(orderId);
+    const driverToken = await tokenForDriver(offer.driver_id);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/driver/offers/${offer.id}/decline`,
+      headers: { authorization: `Bearer ${driverToken}`, 'content-type': 'application/octet-stream' },
+      payload: '',
+    });
+    assert.equal(res.statusCode, 200, res.body);
+  });
+
+  it('несумісний тип вмісту віддає 415, а не 500', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${passengerToken}`, 'content-type': 'application/xml' },
+      payload: '<ride/>',
+    });
+    assert.equal(res.statusCode, 415, res.body);
+    assert.equal(JSON.parse(res.body).error.code, 'FST_ERR_CTP_INVALID_MEDIA_TYPE');
+  });
+});
