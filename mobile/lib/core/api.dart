@@ -20,7 +20,11 @@ class ApiException implements Exception {
 /// Тонкий типізований клієнт REST + WebSocket до RUKH API.
 class ApiClient {
   ApiClient({required String baseUrl, List<String> fallbacks = const <String>[]}) {
-    baseUrls = <String>[baseUrl, ...fallbacks.where((u) => u.trim().isNotEmpty && u != baseUrl)];
+    final seen = <String>{};
+    baseUrls = <String>[
+      for (final url in <String>[baseUrl, ...fallbacks])
+        if (url.trim().isNotEmpty && seen.add(url.trim())) url.trim(),
+    ];
   }
 
   /// Список адрес API: перша — основна, решта — резервні. Якщо основна не
