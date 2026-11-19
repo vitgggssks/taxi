@@ -73,6 +73,11 @@ cloudflared tunnel --url http://127.0.0.1:3000 --protocol http2   # резерв
 > Для постійного хосту: VPS/Render/Railway/Fly з диском під SQLite або Postgres з
 > `docs/03-data-model.sql`.
 
+### Варіанти хостингу
+
+Покроково (VPS/Docker, Vercel, локально + тунель, Wi-Fi без інтернету) —
+[`docs/06-hosting.md`](docs/06-hosting.md).
+
 ### Serverless (Vercel)
 
 ```bash
