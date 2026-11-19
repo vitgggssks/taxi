@@ -59,6 +59,9 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk rukh-android.apk
 
       - name: Upload artifact
+        # GitHub Actions Artifacts має квоту; реліз нижче — основне джерело APK,
+        # тож проблеми зі сховищем артефактів не повинні валити збірку.
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: rukh-android-apk

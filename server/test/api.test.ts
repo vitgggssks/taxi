@@ -54,6 +54,16 @@ async function createRide(opts: Record<string, unknown> = {}): Promise<any> {
   return res;
 }
 
+/** Перша пропозиція замовлення — ручна (offered) або вже прийнята (accept). */
+function offerFor(orderId: string): any {
+  const row = db.prepare(
+    `SELECT * FROM order_offers WHERE order_id=? AND status IN ('offered','accepted')
+     ORDER BY CASE status WHEN 'offered' THEN 0 ELSE 1 END, created_at LIMIT 1`,
+  ).get(orderId);
+  assert.ok(row, `dispatch did not create an offer for ${orderId}`);
+  return row;
+}
+
 before(async () => {
   const built = buildApp({ dbFile: ':memory:', seed: true, webRoot: '../web' });
   app = built.app;
@@ -328,8 +338,9 @@ describe('passenger order lifecycle', () => {
     resetWorld();
     db.prepare(`UPDATE orders SET status='canceled' WHERE passenger_id = ?`).run(passengerId);
     const created = await createRide();
+    assert.equal(created.status, 200, `createRide failed: ${created.status} ${created.raw}`);
     const orderId = created.body.order.id;
-    const offer = db.prepare(`SELECT * FROM order_offers WHERE order_id=? AND status='offered' LIMIT 1`).get(orderId);
+    const offer = offerFor(orderId);
     const driverToken = await tokenForDriver(offer.driver_id);
     await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, driverToken);
 
@@ -352,7 +363,7 @@ describe('passenger order lifecycle', () => {
     db.prepare(`UPDATE orders SET status='canceled' WHERE passenger_id = ?`).run(passengerId);
     const created = await createRide({ paymentMethod: 'cash' });
     const orderId = created.body.order.id;
-    const offer = db.prepare(`SELECT * FROM order_offers WHERE order_id=? AND status='offered' LIMIT 1`).get(orderId);
+    const offer = offerFor(orderId);
     const driverToken = await tokenForDriver(offer.driver_id);
     const driverId = offer.driver_id;
     await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, driverToken);
@@ -384,8 +395,9 @@ describe('passenger order lifecycle', () => {
     resetWorld();
     db.prepare(`UPDATE orders SET status='canceled' WHERE passenger_id = ?`).run(passengerId);
     const created = await createRide();
+    assert.equal(created.status, 200, `createRide failed: ${created.status} ${created.raw}`);
     const orderId = created.body.order.id;
-    const offer = db.prepare(`SELECT * FROM order_offers WHERE order_id=? AND status='offered' LIMIT 1`).get(orderId);
+    const offer = offerFor(orderId);
     const driverToken = await tokenForDriver(offer.driver_id);
     await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, driverToken);
     await api('POST', `/api/driver/orders/${orderId}/status`, { status: 'driver_arriving' }, driverToken);
@@ -405,7 +417,7 @@ describe('payments', () => {
     db.prepare(`UPDATE orders SET status='canceled' WHERE passenger_id = ?`).run(passengerId);
     const created = await createRide({ paymentMethod: 'wallet' });
     const orderId = created.body.order.id;
-    const offer = db.prepare(`SELECT * FROM order_offers WHERE order_id=? AND status='offered' LIMIT 1`).get(orderId);
+    const offer = offerFor(orderId);
     const driverToken = await tokenForDriver(offer.driver_id);
     await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, driverToken);
     for (const status of ['driver_arriving', 'in_progress', 'completed']) {
@@ -473,7 +485,7 @@ describe('delivery', () => {
     assert.ok(delivery.dropoff_code);
     assert.notEqual(delivery.pickup_code, delivery.dropoff_code);
 
-    const offer = db.prepare(`SELECT * FROM order_offers WHERE order_id=? AND status='offered' LIMIT 1`).get(orderId);
+    const offer = offerFor(orderId);
     assert.ok(offer, 'delivery order is dispatched to a courier');
     const courierToken = await tokenForDriver(offer.driver_id);
     await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, courierToken);
@@ -647,7 +659,7 @@ describe('corporate module', () => {
     }, corp.token);
     assert.equal(res.status, 200, res.raw);
     const orderId = res.body.order.id;
-    const offer = db.prepare(`SELECT * FROM order_offers WHERE order_id=? AND status='offered' LIMIT 1`).get(orderId);
+    const offer = offerFor(orderId);
     if (offer) {
       const driverToken = await tokenForDriver(offer.driver_id);
       await api('POST', `/api/driver/offers/${offer.id}/accept`, {}, driverToken);
