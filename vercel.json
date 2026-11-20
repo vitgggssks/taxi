@@ -13,9 +13,21 @@
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "cache-control", "value": "no-store" },
-        { "key": "access-control-allow-origin", "value": "*" }
+        {
+          "key": "cache-control",
+          "value": "no-store"
+        },
+        {
+          "key": "access-control-allow-origin",
+          "value": "*"
+        }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index"
     }
   ]
 }

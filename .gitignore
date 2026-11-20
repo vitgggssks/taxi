@@ -12,6 +12,7 @@ build/
 coverage/
 
 # serverless-збірка (генерується) і локальні артефакти Vercel
-api/
+api/*
+!api/index.mjs
 public/
 .vercel/
