@@ -24,7 +24,8 @@
  * Змінні: SERVEO_COUNT (2), CF_COUNT (0), PINGGY (0|1), WATCH_INTERVAL_MS (8000),
  *         TUNNEL_TARGET, REPO_DIR, GIT_BRANCH, DRY_RUN, API_PRECHECK (0|1).
  */
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -32,7 +33,8 @@ import { homedir } from 'node:os';
 const CLOUDFLARED = process.env.CLOUDFLARED ?? join(homedir(), '.cache/cloudflared');
 const TARGET = process.env.TUNNEL_TARGET ?? 'http://127.0.0.1:3000';
 const LOCAL_PORT = new URL(TARGET).port || '3000';
-const SERVEO_COUNT = Number(process.env.SERVEO_COUNT ?? 2);
+const LHR_COUNT = Number(process.env.LHR_COUNT ?? 2);
+const SERVEO_COUNT = Number(process.env.SERVEO_COUNT ?? 0);
 const CF_COUNT = Number(process.env.CF_COUNT ?? 0);
 const USE_PINGGY = process.env.PINGGY === '1';
 const INTERVAL = Number(process.env.WATCH_INTERVAL_MS ?? 8_000);
@@ -45,6 +47,7 @@ const TOKEN = process.env.GITHUB_TOKEN ?? '';
 const DRY_RUN = process.env.DRY_RUN === '1';
 
 const URL_PATTERNS = [
+  /https:\/\/[a-z0-9-]+\.app\.lhr\.life/,
   /https:\/\/[a-z0-9-]+\.serveousercontent\.com/,
   /https:\/\/[a-z0-9-]+\.trycloudflare\.com/,
   /https:\/\/[a-z0-9-]+\.run\.pinggy-free\.link/,
@@ -59,6 +62,28 @@ let published = '';
 
 const log = (...args) => console.log(new Date().toISOString(), ...args);
 
+const exec = promisify(execFile);
+/** git із жорстким таймаутом: завислий push НЕ має блокувати перевірки тунелів. */
+const git = async (args) => {
+  const basic = Buffer.from(`x-access-token:${TOKEN}`).toString('base64');
+  return exec('git', ['-c', `http.extraheader=AUTHORIZATION: basic ${basic}`, ...args], {
+    cwd: REPO_DIR,
+    timeout: 45_000,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  });
+};
+
+/** Останні рядки виводу ssh/cloudflared без ANSI — щоб було видно ПРИЧИНУ збою. */
+const tail = (text) =>
+  text
+    .replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(-2)
+    .join(' | ')
+    .slice(0, 200);
+
 const sshArgs = (extra) => [
   ...extra,
   '-o', 'StrictHostKeyChecking=no',
@@ -71,6 +96,15 @@ const sshArgs = (extra) => [
 
 function providers() {
   const list = [];
+  for (let i = 0; i < LHR_COUNT; i++) {
+    list.push({
+      name: `localhost.run#${i + 1}`,
+      spawn: () =>
+        spawn('ssh', [...sshArgs([]), '-R', `80:localhost:${LOCAL_PORT}`, 'nokey@localhost.run'], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }),
+    });
+  }
   for (let i = 0; i < SERVEO_COUNT; i++) {
     list.push({
       name: `serveo#${i + 1}`,
@@ -109,42 +143,54 @@ function startTunnel(provider) {
   const proc = provider.spawn();
   let buffer = '';
   let rateLimited = false;
+  let lastError = '';
 
   const onData = (chunk) => {
     buffer += String(chunk);
     if (/\b429\b|rate.?limit/i.test(buffer)) rateLimited = true;
+    // localhost.run періодично ЗМІНЮЄ домен у межах тієї самої сесії, тому
+    // беремо найновішу (останню) адресу у виводі, а старі для цього процесу
+    // прибираємо — інакше публікували б мертвий домен.
     for (const pattern of URL_PATTERNS) {
-      const match = buffer.match(pattern);
-      if (match && !tunnels.has(match[0])) {
-        const url = match[0];
-        tunnels.set(url, { proc, provider: provider.name, failures: 0, startedAt: Date.now(), healthy: false });
-        log(`+ [${provider.name}] ${url} (перевіряю…)`);
-        alive(url).then((ok) => {
-          const entry = tunnels.get(url);
-          if (!entry) return;
-          entry.healthy = ok;
-          if (ok) {
-            state.delay = 3000; // провайдер ожив — скидаємо паузу
-            log(`✓ [${provider.name}] ${url} відповідає`);
-            publish();
-          } else {
-            log(`✗ [${provider.name}] ${url} не відповідає — у публікацію не піде`);
-          }
-        });
-        return;
+      const matches = [...buffer.matchAll(new RegExp(pattern.source, 'g'))].map((m) => m[0]);
+      if (!matches.length) continue;
+      const url = matches[matches.length - 1];
+      if (tunnels.has(url)) return;
+      for (const [known, entry] of [...tunnels]) {
+        if (entry.proc === proc && known !== url) {
+          tunnels.delete(known);
+          log(`~ [${provider.name}] домен змінився: ${known} → ${url}`);
+        }
       }
+      tunnels.set(url, { proc, provider: provider.name, failures: 0, startedAt: Date.now(), healthy: false });
+      log(`+ [${provider.name}] ${url} (перевіряю…)`);
+      alive(url).then(async (ok) => {
+        const entry = tunnels.get(url);
+        if (!entry) return;
+        entry.healthy = ok;
+        if (ok) {
+          state.delay = 3000; // провайдер ожив — скидаємо паузу
+          log(`✓ [${provider.name}] ${url} відповідає`);
+          await publish();
+        } else {
+          log(`✗ [${provider.name}] ${url} не відповідає — у публікацію не піде`);
+        }
+      });
+      return;
     }
   };
 
   proc.stdout.on('data', onData);
   proc.stderr.on('data', onData);
-  proc.on('exit', (code) => {
+  proc.on('exit', async (code) => {
     for (const [url, entry] of [...tunnels]) {
       if (entry.proc === proc) {
         tunnels.delete(url);
         log(`- [${entry.provider}] ${url} (code ${code})`);
       }
+      lastError = tail(buffer);
     }
+    if (lastError) log(`  причина: ${lastError}`);
     if (rateLimited) {
       state.nextStartAt = Date.now() + RATE_LIMIT_BACKOFF_MS;
       log(`⏸ [${provider.name}] ліміт провайдера (429) — наступна спроба через 10 хв`);
@@ -153,10 +199,15 @@ function startTunnel(provider) {
       state.delay = Math.min(state.delay * 2, MAX_BACKOFF_MS);
       log(`… [${provider.name}] перезапуск через ${Math.round(state.delay / 1000)} с`);
     }
-    publish();
+    await publish();
   });
   return proc;
 }
+
+let lastTickAt = Date.now();
+const heartbeat = () => {
+  lastTickAt = Date.now();
+};
 
 async function alive(url) {
   try {
@@ -186,38 +237,45 @@ function writeEndpointFile(urls) {
   writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
 }
 
-function publish() {
+let publishing = false;
+
+async function publish() {
   const urls = [...tunnels.entries()].filter(([, e]) => e.healthy).map(([u]) => u).sort();
   if (!urls.length) return; // не затираємо файл, якщо живого поки немає
   const fingerprint = JSON.stringify(urls);
-  if (fingerprint === published) return;
+  if (fingerprint === published || publishing) return;
   published = fingerprint;
 
   writeEndpointFile(urls);
   log(`endpoint.json → ${urls.join(', ')}`);
 
   if (DRY_RUN || !TOKEN) return;
+  publishing = true;
   try {
-    const basic = Buffer.from(`x-access-token:${TOKEN}`).toString('base64');
-    const run = (args) =>
-      execFileSync('git', ['-c', `http.extraheader=AUTHORIZATION: basic ${basic}`, ...args], {
-        cwd: REPO_DIR,
-        stdio: 'pipe',
-      });
-    run(['add', 'endpoint.json']);
+    await git(['add', 'endpoint.json']);
     try {
-      run(['commit', '-m', `chore(endpoint): живі адреси API — ${urls.length} шт.`]);
+      await git(['commit', '-m', `chore(endpoint): живі адреси API — ${urls.length} шт.`]);
     } catch {
       /* нічого не змінилось */
     }
-    run(['push', 'origin', BRANCH]);
+    try {
+      await git(['push', 'origin', BRANCH]);
+    } catch {
+      // паралельний push (наприклад, з іншої сесії) — підтягуємо й повторюємо
+      await git(['pull', '--rebase', '--autostash', 'origin', BRANCH]);
+      await git(['push', 'origin', BRANCH]);
+    }
     log('endpoint.json опубліковано в GitHub');
   } catch (error) {
+    published = ''; // дати шанс наступній спробі
     log('публікація endpoint.json не вдалась:', String(error.message ?? error).slice(0, 160));
+  } finally {
+    publishing = false;
   }
 }
 
 async function tick() {
+  heartbeat();
   for (const [url, entry] of [...tunnels]) {
     // профілактичний перезапуск Pinggy (безкоштовний тунель живе 60 хв)
     if (entry.provider === 'pinggy' && Date.now() - entry.startedAt > PINGGY_MAX_AGE_MS) {
@@ -248,7 +306,7 @@ async function tick() {
         /* ignore */
       }
       tunnels.delete(url);
-      publish();
+      await publish();
     }
   }
   for (const provider of PROVIDERS) {
@@ -257,7 +315,7 @@ async function tick() {
     backoff.set(provider.name, state);
     if (active.length === 0 && Date.now() >= state.nextStartAt) startTunnel(provider);
   }
-  publish();
+  await publish();
 }
 
 async function precheck() {
@@ -277,11 +335,22 @@ if (CF_COUNT > 0 && !existsSync(CLOUDFLARED)) {
 }
 
 await precheck();
-log(`вартовий стартує: serveo×${SERVEO_COUNT}${CF_COUNT ? ` + cloudflare×${CF_COUNT}` : ''}${USE_PINGGY ? ' + pinggy' : ''} → ${TARGET}`);
+log(`вартовий стартує: localhost.run×${LHR_COUNT} + serveo×${SERVEO_COUNT}${CF_COUNT ? ` + cloudflare×${CF_COUNT}` : ''}${USE_PINGGY ? ' + pinggy' : ''} → ${TARGET}`);
 for (const provider of PROVIDERS) startTunnel(provider);
 setInterval(() => {
   tick().catch((error) => log('помилка перевірки:', String(error).slice(0, 160)));
 }, INTERVAL);
+
+// Пульс: якщо його немає понад 3 хв — цикл перевірок застряг (було через
+// синхронний git push, який блокував event loop).
+setInterval(() => {
+  const stalled = Date.now() - lastTickAt > 180_000;
+  log(
+    `♥ жив${stalled ? ' (ЦИКЛ ЗАСТРЯГ)' : ''}: тунелів=${tunnels.size}, живих=${
+      [...tunnels.values()].filter((t) => t.healthy).length
+    }`,
+  );
+}, 60_000);
 
 const shutdown = () => {
   for (const { proc } of tunnels.values()) {

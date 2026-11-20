@@ -54,20 +54,20 @@ const landing = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>РУХ API</title>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center;
-         background: #0b0f0d; color: #e9efe9; font: 16px/1.5 system-ui, sans-serif; padding: 24px; }
-  .card { max-width: 620px; width: 100%; background: #141a17; border: 1px solid #222c27;
+         background: #F6F7F9; color: #14171A; font: 16px/1.5 system-ui, sans-serif; padding: 24px; }
+  .card { max-width: 620px; width: 100%; background: #FFFFFF; border: 1px solid #E4E7EB;
           border-radius: 20px; padding: 28px; }
-  .mark { width: 44px; height: 44px; border-radius: 12px; background: #9be64b; color: #0b0f0d;
+  .mark { width: 44px; height: 44px; border-radius: 12px; background: #FFD000; color: #14171A;
           display: grid; place-items: center; font-weight: 800; font-size: 22px; }
   h1 { font-size: 22px; margin: 16px 0 4px; }
-  p { color: #8fa098; margin: 0 0 16px; }
-  code { background: #1b2320; padding: 2px 6px; border-radius: 6px; }
-  a { color: #9be64b; }
-  ul { padding-left: 18px; color: #cfe0d5; }
+  p { color: #66707A; margin: 0 0 16px; }
+  code { background: #F1F3F5; padding: 2px 6px; border-radius: 6px; }
+  a { color: #8A6D00; }
+  ul { padding-left: 18px; color: #33404A; }
   li { margin: 6px 0; }
-  .note { margin-top: 18px; font-size: 13px; color: #8fa098; border-top: 1px solid #222c27; padding-top: 14px; }
+  .note { margin-top: 18px; font-size: 13px; color: #66707A; border-top: 1px solid #E4E7EB; padding-top: 14px; }
 </style>
 </head>
 <body>

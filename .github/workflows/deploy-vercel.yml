@@ -1,0 +1,66 @@
+name: Deploy API to Vercel
+
+# Постійний хостинг демо-API на Vercel (serverless).
+#
+# Чому не тунель: пісочниця розробки засинає між сесіями, і будь-який тунель
+# (cloudflared / serveo / localhost.run) віддає 502, щойно сесія завершується.
+# Vercel тримає API завжди доступним.
+#
+# Потрібно один раз додати в репозиторій:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     VERCEL_TOKEN      — https://vercel.com/account/tokens (Scope: Full Account)
+#     VERCEL_ORG_ID     — Vercel → Settings → General → Team ID
+#     VERCEL_PROJECT_ID — Vercel → проєкт rukh-api → Settings → General → Project ID
+#
+# Далі кожен push у main автоматично передеплоює API. Без цих секретів
+# workflow просто завершується з підказкою — нічого не ламається.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'api/**'
+      - 'web/**'
+      - 'scripts/build-vercel.mjs'
+      - 'vercel.json'
+      - '.github/workflows/deploy-vercel.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Перевірка секретів
+        id: check
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Секрет VERCEL_TOKEN не заданий — деплой пропущено."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          node-version: '24'
+
+      - name: Build serverless bundle
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          npm install --no-audit --no-fund
+          npm --prefix server install --no-audit --no-fund
+          npm run build:vercel
+
+      - name: Deploy
+        if: steps.check.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"

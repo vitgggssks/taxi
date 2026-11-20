@@ -1,0 +1,38 @@
+# Render Blueprint — безкоштовний постійний хостинг демо-API RUKH.
+#
+# Навіщо: демо-сервер має жити там, де процес не засинає. Пісочниця розробки
+# засинає між сесіями, тому тунелі (cloudflared / serveo / localhost.run)
+# неминуче віддають 502, щойно сесія завершується.
+#
+# Як скористатись (одноразово, ~3 хвилини):
+#   1. https://dashboard.render.com/select-repo?type=blueprint → вибрати цей репозиторій;
+#   2. Render прочитає цей файл і створить веб-сервіс `rukh-api`;
+#   3. після деплою скопіювати адресу вигляду https://rukh-api.onrender.com;
+#   4. вписати її в репозиторій: Settings → Secrets and variables → Actions →
+#      Variables → API_BASE_URL, і в `endpoint.json` (поле endpoints).
+#
+# Обмеження безкоштовного тарифу Render: інстанс засинає після 15 хв без
+# запитів, перший запит після сну — 20–50 с, дані SQLite живуть до передеплою
+# (демо-сід створюється на старті). Для постійного продакшену — платний план
+# або VPS із диском (див. docs/06-hosting.md).
+
+services:
+  - type: web
+    name: rukh-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: server
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: NODE_ENV
+        value: production
+      - key: DB_FILE
+        value: /tmp/rukh.db
+      - key: SEED
+        value: "1"

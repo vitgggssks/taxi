@@ -142,6 +142,30 @@ cloudflared tunnel --url http://127.0.0.1:3000 --protocol http2   # резерв
 > Для постійного хосту: VPS/Render/Railway/Fly з диском під SQLite або Postgres з
 > `docs/03-data-model.sql`.
 
+### Чому демо-API не живе в пісочниці розробки
+
+Пісочниця (середовище, де збирається проєкт) **засинає між сесіями** — це
+видно з журналу вартового: пульс `♥` іде рівно до кінця сесії, а після
+відновлення в логах `Connection reset by peer` і `no tunnel`. Тому будь-який
+безкоштовний тунель (cloudflared, serveo, localhost.run, pinggy) неминуче
+віддає `502`, щойно сесія завершується.
+
+Висновок: **демо має крутитися на постійному хостингу**, а не на тунелі.
+Вартовий тунелів лишається для роботи під час сесії (швидка перевірка на
+телефоні), але постійний варіант — один із двох:
+
+1. **Render (Blueprint, безкоштовно)** — [render.yaml](render.yaml):
+   New → Blueprint → вибрати репозиторій → `rukh-api`. Адреса буде вигляду
+   `https://rukh-api.onrender.com`; її треба вписати у змінну `API_BASE_URL`
+   та в `endpoint.json`.
+2. **Vercel (serverless)** — [.github/workflows/deploy-vercel.yml](.github/workflows/deploy-vercel.yml):
+   додати секрети `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` — далі
+   кожен push у `main` передеплоює API автоматично (`api/index.mjs` +
+   `public/index.html` збираються `scripts/build-vercel.mjs`).
+
+Після появи постійної адреси застосунок нічого перезбирати не треба: він бере
+адресу з `endpoint.json` (або з іконки сервера на екрані входу — ручне введення).
+
 ### Варіанти хостингу
 
 Покроково (VPS/Docker, Vercel, локально + тунель, Wi-Fi без інтернету) —
