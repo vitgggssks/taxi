@@ -7,9 +7,9 @@
 // обирає живу.
 //
 // Джерела читаються ПАРАЛЕЛЬНО, бо кожен із них кешує файл по-своєму:
-//   1) cdn.jsdelivr.net — віддає свіжий вміст майже одразу після push;
-//   2) raw.githubusercontent.com — CDN кешує до ~5 хв (додаємо cache-buster);
-//   3) api.github.com/contents — без кешу, але з лімітом запитів.
+//   1) api.github.com/contents — завжди свіжий (ліміт 60 запитів/год на IP);
+//   2) raw.githubusercontent.com — CDN кешує до ~5 хв;
+//   3) cdn.jsdelivr.net — кеш гілки може триматися годинами (резерв).
 // Перемагає відповідь із найновішим `updatedAt`, у якій є хоча б одна адреса.
 //
 // Порядок пріоритету адрес у застосунку:
@@ -22,15 +22,15 @@ import 'dart:io';
 
 /// Публічні джерела переліку адрес API (перевіряються паралельно).
 const List<String> kDiscoverySources = <String>[
-  'https://cdn.jsdelivr.net/gh/vitgggssks/taxi@main/endpoint.json',
-  'https://raw.githubusercontent.com/vitgggssks/taxi/main/endpoint.json',
   'https://api.github.com/repos/vitgggssks/taxi/contents/endpoint.json',
+  'https://raw.githubusercontent.com/vitgggssks/taxi/main/endpoint.json',
+  'https://cdn.jsdelivr.net/gh/vitgggssks/taxi@main/endpoint.json',
 ];
 
 /// Основне джерело (для сумісності й для діагностики в UI).
 const String kDiscoveryUrl = String.fromEnvironment(
   'API_DISCOVERY_URL',
-  defaultValue: 'https://cdn.jsdelivr.net/gh/vitgggssks/taxi@main/endpoint.json',
+  defaultValue: 'https://api.github.com/repos/vitgggssks/taxi/contents/endpoint.json',
 );
 
 class _Snapshot {

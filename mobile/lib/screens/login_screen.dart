@@ -43,6 +43,10 @@ class _LoginScreenState extends State<LoginScreen> {
   /// (стабільне посилання), потім перевіряємо звʼязок. Так демо-вхід працює,
   /// навіть якщо адреса тунелю змінилась після збірки APK.
   Future<void> _bootstrap() async {
+    final cached = _cachedEndpoints();
+    if (cached.isNotEmpty) {
+      widget.session.api.setBaseUrls(<String>[...cached, ...widget.session.api.baseUrls]);
+    }
     if (mounted) setState(() => _discovering = true);
     await _refreshEndpoints();
     if (mounted) setState(() => _discovering = false);
@@ -57,8 +61,20 @@ class _LoginScreenState extends State<LoginScreen> {
       if (found.isEmpty) return;
       widget.session.api.setBaseUrls(<String>[...found, ...widget.session.api.baseUrls]);
       _discoveredCount = found.length;
+      // Кеш останніх робочих адрес: якщо наступного разу GitHub/CDN недоступний,
+      // застосунок усе одно спробує адреси, які працювали торік.
+      await widget.session.prefs.setStringList('endpoints', found);
     } catch (_) {
       /* виявлення адреси не має ламати вхід */
+    }
+  }
+
+  /// Адреси, збережені з попереднього успішного запуску (найшвидший шлях).
+  List<String> _cachedEndpoints() {
+    try {
+      return widget.session.prefs.getStringList('endpoints') ?? const <String>[];
+    } catch (_) {
+      return const <String>[];
     }
   }
 
