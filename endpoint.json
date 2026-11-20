@@ -1,8 +1,9 @@
 {
   "service": "rukh-api",
-  "updatedAt": "2026-11-20T09:02:54.591Z",
+  "updatedAt": "2026-11-20T09:03:02.097Z",
   "note": "Публічні адреси демо-API (два незалежні провайдери тунелів). Оновлюється scripts/tunnel-watchdog.mjs. Застосунок читає цей файл на старті й сам обирає живу адресу — APK перезбирати не потрібно.",
   "endpoints": [
-    "https://ercdc-35-185-203-108.run.pinggy-free.link"
+    "https://ercdc-35-185-203-108.run.pinggy-free.link",
+    "https://wlgsg-35-185-203-108.free.pinggy.net"
   ]
 }
