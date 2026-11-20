@@ -54,6 +54,10 @@ class ApiClient {
 
   String? token;
 
+  /// Таймаут одного HTTP-запиту. Демо має «падати» швидко й показувати
+  /// зрозумілу помилку, а не крутити спінер хвилинами.
+  Duration requestTimeout = const Duration(seconds: 8);
+
   final HttpClient _http = HttpClient()..connectionTimeout = const Duration(seconds: 12);
   bool _closed = false;
 
@@ -115,7 +119,7 @@ class ApiClient {
     }
     final HttpClientResponse res;
     try {
-      res = await req.close().timeout(const Duration(seconds: 25));
+      res = await req.close().timeout(requestTimeout);
     } on SocketException catch (e) {
       throw ApiException(0, 'network', 'Немає звʼязку з сервером: ${e.message}');
     } on TimeoutException {

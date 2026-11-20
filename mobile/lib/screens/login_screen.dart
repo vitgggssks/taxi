@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/api.dart';
+import '../core/demo_login.dart';
 import '../core/discovery.dart';
 import '../core/session.dart';
 import '../theme.dart';
@@ -27,6 +30,8 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _serverInfo;
   bool _discovering = false;
   int _discoveredCount = 0;
+  bool _diagRunning = false;
+  List<_EndpointCheck> _diag = <_EndpointCheck>[];
 
   @override
   void initState() {
@@ -128,49 +133,144 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   /// Демо-вхід одним дотиком.
-  /// Мережеві збої (обрив тунелю, 5xx) не показуємо одразу: робимо до 3 спроб
-  /// з паузою, і на кожній спробі клієнт перемикається на наступну адресу API.
+  ///
+  /// Запит іде **паралельно до всіх відомих адрес** — перша успішна відповідь
+  /// виграє. Це принципово швидше за послідовні спроби: навіть якщо два тунелі
+  /// впали, третій відповідає за секунду, і користувач не бачить «вічного»
+  /// спінера.
   Future<void> _demoLogin({String? role, String? phone}) async {
-    const attempts = 5;
+    const rounds = 2;
     setState(() {
       _busy = true;
       _error = null;
-      _info = null;
+      _info = 'Зʼєднуємось із сервером…';
     });
-    for (var attempt = 1; attempt <= attempts; attempt++) {
-      if (attempt > 1 && mounted) {
-        setState(() => _info = 'Зʼєднуємось із сервером… спроба $attempt/$attempts');
-        // Перед повторною спробою перечитуємо endpoint.json: якщо тунель впав,
-        // там уже може бути свіжа адреса (її публікує вартовий на сервері).
-        await _refreshEndpoints();
-        await Future<void>.delayed(const Duration(seconds: 3));
+
+    for (var round = 1; round <= rounds; round++) {
+      if (round > 1) {
         if (!mounted) return;
+        setState(() => _info = 'Оновлюю адреси й пробую ще раз…');
+        await _refreshEndpoints();
       }
       try {
-        final res = await widget.session.api.post('/api/auth/demo-login', {
-          if (role != null) 'role': role,
-          if (phone != null) 'phone': phone,
-        });
-        final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
-        await widget.session.signIn('${map['token']}', Map<String, dynamic>.from(map['user'] as Map));
-        if (mounted) setState(() => _busy = false);
+        final result = await raceDemoLogin(
+          widget.session.api.baseUrls,
+          role: role,
+          phone: phone,
+        );
+        // робоча адреса стає першою для всіх наступних запитів
+        widget.session.api.setBaseUrls(<String>[result.endpoint, ...widget.session.api.baseUrls]);
+        final map = result.data;
+        final token = '${map['token'] ?? ''}';
+        if (token.isEmpty) throw ApiException(0, 'no_token', 'Сервер не повернув токен');
+        final rawUser = map['user'];
+        await widget.session.signIn(
+          token,
+          rawUser is Map ? Map<String, dynamic>.from(rawUser) : <String, dynamic>{},
+        );
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _info = null;
+          });
+        }
         return;
       } on ApiException catch (e) {
-        final retryable = e.status == 0 || e.status >= 500;
-        if (!retryable || attempt == attempts) {
-          if (mounted) {
-            setState(() {
-              _error = e.message;
-              _info = null;
-              if (e.status == 0 || e.status >= 500) _serverOk = false;
-            });
-          }
-          break;
+        if (mounted) {
+          setState(() {
+            _error = e.status == 0
+                ? 'Сервер зараз недоступний. Перевірте інтернет і натисніть «Повторити».'
+                : e.message;
+            _info = null;
+            _serverOk = false;
+          });
         }
-        if (mounted) setState(() => _serverOk = false);
       }
     }
     if (mounted) setState(() => _busy = false);
+  }
+
+  /// Паралельна перевірка всіх відомих адрес: показує, яка відповідає,
+  /// за скільки мілісекунд і з якою помилкою. Це дає відповідь на питання
+  /// «чому не входить» без здогадок.
+  Future<void> _runDiagnostics() async {
+    setState(() {
+      _diagRunning = true;
+      _diag = <_EndpointCheck>[];
+    });
+    await _refreshEndpoints();
+    final urls = List<String>.from(widget.session.api.baseUrls);
+    final results = await Future.wait(urls.map((url) async {
+      final probe = ApiClient(baseUrl: url);
+      probe.requestTimeout = const Duration(seconds: 6);
+      final watch = Stopwatch()..start();
+      try {
+        final res = await probe.get('/api/health');
+        watch.stop();
+        final ok = res is Map && res['ok'] == true;
+        return _EndpointCheck(url, ok, watch.elapsedMilliseconds, ok ? null : 'відповідь без ok');
+      } on ApiException catch (e) {
+        watch.stop();
+        return _EndpointCheck(url, false, watch.elapsedMilliseconds, e.message);
+      } finally {
+        probe.close();
+      }
+    }));
+    if (!mounted) return;
+    setState(() {
+      _diag = results;
+      _diagRunning = false;
+      _serverOk = results.any((r) => r.ok);
+    });
+  }
+
+  Widget _diagnosticsCard() {
+    return SectionCard(
+      title: 'Перевірка адрес',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final check in _diag) ...[
+            Row(
+              children: [
+                Icon(
+                  check.ok ? Icons.check_circle : Icons.cancel,
+                  size: 16,
+                  color: check.ok ? RukhTheme.success : RukhTheme.danger,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        check.url.replaceFirst(RegExp(r'^https?://'), ''),
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        check.ok ? 'відповів за ${check.ms} мс' : '${check.error ?? 'помилка'} (${check.ms} мс)',
+                        style: const TextStyle(fontSize: 11, color: RukhTheme.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            _diag.any((c) => c.ok)
+                ? 'Сервер живий — натисніть «Демо-вхід одним дотиком».'
+                : 'Жодна адреса не відповіла. Перевірте інтернет на телефоні. '
+                    'Якщо інтернет є — сервер тимчасово недоступний, спробуйте за хвилину '
+                    'або введіть іншу адресу через іконку сервера.',
+            style: const TextStyle(fontSize: 11, color: RukhTheme.muted, height: 1.4),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _editServer() async {
@@ -300,8 +400,28 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 14),
             if (_error != null) ...[
               ErrorBox(message: _error!),
-              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _demoLogin(role: 'passenger'),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Повторити'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy || _diagRunning ? null : _runDiagnostics,
+                      icon: const Icon(Icons.network_check, size: 18),
+                      label: const Text('Діагностика'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
             ],
+            if (_diag.isNotEmpty) ...[_diagnosticsCard(), const SizedBox(height: 14)],
             TextField(
               controller: _phone,
               keyboardType: TextInputType.phone,
@@ -437,4 +557,13 @@ class _DemoChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EndpointCheck {
+  const _EndpointCheck(this.url, this.ok, this.ms, this.error);
+
+  final String url;
+  final bool ok;
+  final int ms;
+  final String? error;
 }

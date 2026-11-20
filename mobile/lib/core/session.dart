@@ -33,23 +33,39 @@ class Session extends ChangeNotifier {
     return raw;
   }
 
+  /// Відновлення сесії.
+  ///
+  /// Важливо: UI відкривається **одразу** (`ready = true`), а перевірка токена
+  /// йде у фоні. Раніше `main()` чекав на мережу до першого кадру — якщо сервер
+  /// не відповідав, застосунок показував спінер без жодного екрана.
   Future<void> restore() async {
     final savedBase = prefs.getString('baseUrl');
     if (savedBase != null && savedBase.isNotEmpty) api.baseUrl = savedBase;
     final token = prefs.getString('token');
-    if (token != null && token.isNotEmpty) {
-      api.token = token;
-      try {
-        final me = await api.get('/api/me');
-        user = me is Map ? Map<String, dynamic>.from(me) : null;
-      } on ApiException catch (e) {
-        lastError = e.message;
-        api.token = null;
-        await prefs.remove('token');
-      }
-    }
+    if (token != null && token.isNotEmpty) api.token = token;
+
     ready = true;
     notifyListeners();
+
+    final saved = api.token;
+    if (saved == null || saved.isEmpty) return;
+
+    try {
+      final me = await api.get('/api/me');
+      user = me is Map ? Map<String, dynamic>.from(me) : null;
+      notifyListeners();
+    } on ApiException catch (e) {
+      if (e.isAuth) {
+        // токен недійсний — на екран входу
+        api.token = null;
+        user = null;
+        await prefs.remove('token');
+      } else {
+        // мережа: токен лишаємо, користувач побачить помилку на екрані входу
+        lastError = e.message;
+      }
+      notifyListeners();
+    }
   }
 
   Future<void> signIn(String token, Map<String, dynamic> loggedUser) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,8 +32,10 @@ Future<void> main() async {
       ? ApiClient(baseUrl: saved)
       : ApiClient(baseUrl: kDefaultBaseUrl, fallbacks: _fallbacks());
   final session = Session(api: api, prefs: prefs);
-  await session.restore();
+  // Спершу показуємо UI, потім (у фоні) перевіряємо збережений токен —
+  // жодного «порожнього спінера» на старті.
   runApp(RukhApp(api: api, session: session));
+  unawaited(session.restore());
 }
 
 class RukhApp extends StatelessWidget {
