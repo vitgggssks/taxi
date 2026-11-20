@@ -37,8 +37,8 @@ class MapMarker {
 /// Легка растрова мапа (slippy map) без зовнішніх пакетів: тайли вантажаться
 /// через `dart:io` з кешем у памʼяті, проєкція — Web Mercator.
 ///
-/// Стиль підібрано під OnTaxi/Google-light: світлі дороги (CARTO Positron),
-/// пастельні зони, зелені та фіолетові маркери, темний контур маршруту.
+/// Світла сіро-блакитна палітра, зелені акценти та контрастні маркери.
+/// Це OpenStreetMap, а не Google Maps: деталі тайлів відрізняються від OnTaxi.
 /// Якщо основний провайдер недоступний — автоматичний фолбек на OpenStreetMap.
 class OsmMap extends StatefulWidget {
   const OsmMap({
@@ -50,6 +50,7 @@ class OsmMap extends StatefulWidget {
     this.height = 220,
     this.interactive = true,
     this.showAttribution = true,
+    this.tileLoader,
   });
 
   final MapPoint center;
@@ -59,6 +60,9 @@ class OsmMap extends StatefulWidget {
   final double height;
   final bool interactive;
   final bool showAttribution;
+
+  /// Інʼєкція завантажувача для тестування без мережі.
+  final Future<Uint8List?> Function(int z, int x, int y)? tileLoader;
 
   @override
   State<OsmMap> createState() => _OsmMapState();
@@ -79,6 +83,7 @@ class _OsmMapState extends State<OsmMap> {
   double _startZoom = 14;
   Offset _startFocal = Offset.zero;
   Size _viewport = Size.zero;
+  int? _gestureTileZoom;
 
   @override
   void initState() {
@@ -124,7 +129,7 @@ class _OsmMapState extends State<OsmMap> {
         try {
           final bytes = await _fetch(Uri.parse(url));
           if (bytes != null && bytes.isNotEmpty) {
-            if (_tileCache.length > 400) _tileCache.clear();
+            if (_tileCache.length >= 400) _tileCache.remove(_tileCache.keys.first);
             _tileCache[key] = bytes;
             return bytes;
           }
@@ -160,6 +165,7 @@ class _OsmMapState extends State<OsmMap> {
     _startCenter = _center;
     _startZoom = _zoom;
     _startFocal = details.localFocalPoint;
+    _gestureTileZoom = _zoom.round().clamp(_minZoom.toInt(), _maxZoom.toInt());
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
@@ -184,6 +190,10 @@ class _OsmMapState extends State<OsmMap> {
     });
   }
 
+  void _onScaleEnd(ScaleEndDetails details) {
+    if (_gestureTileZoom != null) setState(() => _gestureTileZoom = null);
+  }
+
   void _zoomBy(double delta) {
     setState(() => _zoom = (_zoom + delta).clamp(_minZoom, _maxZoom));
   }
@@ -199,7 +209,7 @@ class _OsmMapState extends State<OsmMap> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             _viewport = Size(constraints.maxWidth, constraints.maxHeight);
-            final tileZoom = _zoom.round().clamp(_minZoom.toInt(), _maxZoom.toInt()).toDouble();
+            final tileZoom = (_gestureTileZoom ?? _zoom.round().clamp(_minZoom.toInt(), _maxZoom.toInt())).toDouble();
             final cx = Mercator.worldX(_center, tileZoom);
             final cy = Mercator.worldY(_center, tileZoom);
             final scale = math.pow(2, _zoom - tileZoom).toDouble();
@@ -220,12 +230,15 @@ class _OsmMapState extends State<OsmMap> {
                 final left = (tx * _tileSize - cx) * scale + _viewport.width / 2;
                 final top = (ty * _tileSize - cy) * scale + _viewport.height / 2;
                 tiles.add(Positioned(
+                  key: ValueKey('${tileZoom.toInt()}/$tx/$ty'),
                   left: left,
                   top: top,
                   width: tilePx + 0.8,
                   height: tilePx + 0.8,
                   child: _TileImage(
-                    future: _loadTile(tileZoom.toInt(), wrappedX, ty),
+                    z: tileZoom.toInt(), x: wrappedX, y: ty,
+                    cached: widget.tileLoader == null ? _tileCache['${tileZoom.toInt()}/$wrappedX/$ty'] : null,
+                    load: widget.tileLoader ?? _loadTile,
                   ),
                 ));
               }
@@ -273,9 +286,9 @@ class _OsmMapState extends State<OsmMap> {
                     // десатурація + підняття яскравості → світлий «паперовий»
                     // стиль у дусі Google-light / OnTaxi
                     colorFilter: const ColorFilter.matrix(<double>[
-                      0.62, 0.30, 0.08, 0, 26,
-                      0.16, 0.78, 0.06, 0, 26,
-                      0.14, 0.26, 0.60, 0, 26,
+                      0.50, 0.32, 0.12, 0, 15,
+                      0.19, 0.65, 0.11, 0, 17,
+                      0.14, 0.30, 0.51, 0, 22,
                       0, 0, 0, 1, 0,
                     ]),
                     child: Stack(children: tiles),
@@ -292,6 +305,7 @@ class _OsmMapState extends State<OsmMap> {
                     child: GestureDetector(
                       onScaleStart: _onScaleStart,
                       onScaleUpdate: _onScaleUpdate,
+                      onScaleEnd: _onScaleEnd,
                       behavior: HitTestBehavior.translucent,
                     ),
                   ),
@@ -334,30 +348,41 @@ class _OsmMapState extends State<OsmMap> {
   }
 }
 
-class _TileImage extends StatelessWidget {
-  const _TileImage({required this.future});
+class _TileImage extends StatefulWidget {
+  const _TileImage({required this.z, required this.x, required this.y, required this.load, this.cached});
+  final int z, x, y;
+  final Uint8List? cached;
+  final Future<Uint8List?> Function(int, int, int) load;
 
-  final Future<Uint8List?> future;
+  @override
+  State<_TileImage> createState() => _TileImageState();
+}
+
+class _TileImageState extends State<_TileImage> {
+  late Future<Uint8List?> _future;
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.cached == null ? widget.load(widget.z, widget.x, widget.y) : Future.value(widget.cached);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TileImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.z != oldWidget.z || widget.x != oldWidget.x || widget.y != oldWidget.y) {
+      _future = widget.cached == null ? widget.load(widget.z, widget.x, widget.y) : Future.value(widget.cached);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      future: future,
+      future: _future,
+      initialData: widget.cached,
       builder: (context, snapshot) {
         final bytes = snapshot.data;
-        if (bytes == null) {
-          return ColoredBox(
-            color: snapshot.connectionState == ConnectionState.done
-                ? const Color(0xFFEDEBE6)
-                : const Color(0xFFF2F1EC),
-          );
-        }
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          filterQuality: FilterQuality.low,
-        );
+        if (bytes == null) return const ColoredBox(color: Color(0xFFE8EDF0));
+        return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true, filterQuality: FilterQuality.low);
       },
     );
   }
