@@ -34,8 +34,8 @@ class _ShellState extends State<Shell> {
     ];
     final items = <BottomNavigationBarItem>[
       BottomNavigationBarItem(
-        icon: Icon(isDriver ? Icons.local_taxi_outlined : Icons.search),
-        activeIcon: Icon(isDriver ? Icons.local_taxi : Icons.search),
+        icon: Icon(isDriver ? Icons.local_taxi_outlined : Icons.local_taxi_outlined),
+        activeIcon: Icon(isDriver ? Icons.local_taxi : Icons.local_taxi),
         label: isDriver ? 'Робота' : 'Поїздка',
       ),
       const BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Історія'),
@@ -56,7 +56,7 @@ class _ShellState extends State<Shell> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          selectedItemColor: RukhTheme.accent,
+          selectedItemColor: RukhTheme.ink,
           unselectedItemColor: RukhTheme.muted,
           selectedFontSize: 11,
           unselectedFontSize: 11,

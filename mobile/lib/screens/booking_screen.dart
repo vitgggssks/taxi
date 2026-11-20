@@ -343,7 +343,7 @@ class _BookingScreenState extends State<BookingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: RukhAppBar(
-        title: 'Замовлення',
+        title: 'Куди їдемо?',
         subtitle: _city?.name ?? 'РУХ',
         actions: [
           IconButton(
@@ -379,13 +379,11 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  _buildMapCard(),
+                  const SizedBox(height: 12),
                   _buildServiceSelector(),
                   const SizedBox(height: 12),
                   _buildRouteCard(),
-                  if (_routeReady) ...[
-                    const SizedBox(height: 12),
-                    _buildMapCard(),
-                  ],
                   const SizedBox(height: 12),
                   if (_serviceKind == 'delivery') ...[_buildDeliveryCard(), const SizedBox(height: 12)],
                   if (_quoteError != null) ...[ErrorBox(message: _quoteError!), const SizedBox(height: 12)],
@@ -441,7 +439,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _buildRouteCard() {
     return SectionCard(
-      title: 'Маршрут',
+      title: 'Ваш маршрут',
       child: Column(
         children: [
           for (int i = 0; i < _points.length; i++)
@@ -452,7 +450,7 @@ class _BookingScreenState extends State<BookingScreen> {
               final color = isFirst
                   ? RukhTheme.accent
                   : isLast
-                      ? const Color(0xFFB47BFF)
+                      ? RukhTheme.ink
                       : RukhTheme.warning;
               return Column(
                 children: [
@@ -545,7 +543,8 @@ class _BookingScreenState extends State<BookingScreen> {
   Widget _buildMapCard() {
     final selected = _points.whereType<GeoAddress>().toList();
     final points = selected.map((p) => MapPoint(p.lat, p.lng)).toList();
-    final focus = MapFocus.fit(points, viewport: const Size(340, 210));
+    // Київ — демонстраційний центр до вибору адреси, не місцезнаходження користувача.
+    final focus = points.isEmpty ? null : MapFocus.fit(points, viewport: const Size(340, 230));
     final markers = <MapMarker>[];
     if (selected.isNotEmpty) {
       markers.add(MapPins.pickupPin(points.first, label: 'Звідки'));
@@ -554,15 +553,28 @@ class _BookingScreenState extends State<BookingScreen> {
         markers.add(MapPins.stopPin(points[i]));
       }
     }
-    return SectionCard(
-      title: 'Мапа маршруту',
-      padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
-      child: OsmMap(
-        center: focus.center,
-        zoom: focus.zoom,
-        markers: markers,
-        route: points,
-        height: 210,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
+        children: [
+          OsmMap(
+            center: focus?.center ?? const MapPoint(50.4501, 30.5234),
+            zoom: focus?.zoom ?? 12,
+            markers: markers,
+            route: points,
+            height: 230,
+          ),
+          if (points.isEmpty)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                child: const Text('Вкажіть адресу нижче', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ),
+        ],
       ),
     );
   }

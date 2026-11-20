@@ -205,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: RukhAppBar(
         title: 'Профіль',
-        subtitle: session.role,
+        subtitle: 'Ваш акаунт',
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       body: RefreshIndicator(
@@ -219,10 +219,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 26,
-                    backgroundColor: RukhTheme.accent.withValues(alpha: 0.16),
+                    backgroundColor: RukhTheme.accent,
                     child: Text(
                       session.displayName.isEmpty ? 'Р' : session.displayName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(color: RukhTheme.accent, fontSize: 20, fontWeight: FontWeight.w700),
+                      style: const TextStyle(color: RukhTheme.ink, fontSize: 20, fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -230,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(session.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        Text(session.displayName, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
                         Text(session.phone, style: const TextStyle(color: RukhTheme.muted, fontSize: 12)),
                       ],
                     ),

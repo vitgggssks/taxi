@@ -1,7 +1,7 @@
 name: rukh_mobile
 description: "РУХ — застосунок пасажира та водія (Android)."
 publish_to: 'none'
-version: 0.5.2+10
+version: 0.5.3+11
 
 environment:
   sdk: ^3.5.0
