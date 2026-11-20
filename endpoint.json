@@ -1,9 +1,8 @@
 {
   "service": "rukh-api",
-  "updatedAt": "2026-11-19T16:56:22.712Z",
-  "note": "Публічні адреси демо-API. Оновлюється вартовим тунелів (scripts/tunnel-watchdog.mjs). Застосунок читає цей файл на старті й сам обирає живу адресу — APK перезбирати не потрібно.",
+  "updatedAt": "2026-11-20T09:02:54.591Z",
+  "note": "Публічні адреси демо-API (два незалежні провайдери тунелів). Оновлюється scripts/tunnel-watchdog.mjs. Застосунок читає цей файл на старті й сам обирає живу адресу — APK перезбирати не потрібно.",
   "endpoints": [
-    "https://spokesman-north-poster-epa.trycloudflare.com",
-    "https://consist-mapping-longitude-intensive.trycloudflare.com"
+    "https://ercdc-35-185-203-108.run.pinggy-free.link"
   ]
 }
