@@ -1,8 +1,9 @@
 {
   "service": "rukh-api",
-  "updatedAt": "2026-11-20T09:07:02.146Z",
+  "updatedAt": "2026-11-20T09:07:03.306Z",
   "note": "Публічні адреси демо-API (перевірені на живу відповідь). Оновлюється scripts/tunnel-watchdog.mjs. Застосунок читає цей файл на старті й сам обирає живу адресу — APK перезбирати не потрібно.",
   "endpoints": [
-    "https://06b940813aa981fc-35-185-203-108.serveousercontent.com"
+    "https://06b940813aa981fc-35-185-203-108.serveousercontent.com",
+    "https://85ea6eee87120d8e-35-185-203-108.serveousercontent.com"
   ]
 }
