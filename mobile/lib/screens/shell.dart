@@ -22,10 +22,12 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int _index = 0;
+  final _passengerScaffold = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     final isDriver = widget.session.isDriver;
+    if (!isDriver) return _passengerShell();
     final tabs = <Widget>[
       isDriver ? DriverScreen(api: widget.api, session: widget.session) : BookingScreen(api: widget.api, session: widget.session),
       HistoryScreen(api: widget.api, session: widget.session),
@@ -63,6 +65,45 @@ class _ShellState extends State<Shell> {
           items: items,
         ),
       ),
+    );
+  }
+  Widget _passengerShell() {
+    void open(Widget screen) {
+      Navigator.of(context).pop();
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    }
+    Widget menuItem(IconData icon, String title, VoidCallback onTap) => ListTile(
+      leading: Icon(icon, color: const Color(0xFFC5D2D9), size: 27),
+      title: Text(title, style: const TextStyle(color: Color(0xFF263238), fontSize: 20)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20), minLeadingWidth: 24,
+      onTap: onTap,
+    );
+    return Scaffold(
+      key: _passengerScaffold,
+      drawer: Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: Column(children: [
+          InkWell(onTap: () => open(ProfileScreen(api: widget.api, session: widget.session)),
+            child: Padding(padding: const EdgeInsets.all(20), child: Row(children: [
+              const CircleAvatar(radius: 27, backgroundColor: Color(0xFFF0F5F8), child: Icon(Icons.person_outline, color: Color(0xFFBFCED5))),
+              const SizedBox(width: 18),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.session.displayName, style: const TextStyle(fontSize: 21, color: Color(0xFF263238))),
+                Text(widget.session.phone, style: const TextStyle(fontSize: 14, color: Color(0xFF7B8991))),
+              ])),
+            ]))),
+          const Divider(height: 1),
+          Container(color: const Color(0xFFD4F5DE), child: menuItem(Icons.add, 'Нове замовлення', () => Navigator.of(context).pop())),
+          const Divider(height: 1),
+          Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
+            menuItem(Icons.bookmark_border, 'Мої поїздки', () => open(HistoryScreen(api: widget.api, session: widget.session))),
+            menuItem(Icons.star_border, 'Мої адреси', () => open(ProfileScreen(api: widget.api, session: widget.session))),
+            menuItem(Icons.credit_card, 'Оплата і промокоди', () => open(WalletScreen(api: widget.api, session: widget.session))),
+            menuItem(Icons.person_outline, 'Профіль і підтримка', () => open(ProfileScreen(api: widget.api, session: widget.session))),
+          ])),
+        ])),
+      ),
+      body: BookingScreen(api: widget.api, session: widget.session, onMenu: () => _passengerScaffold.currentState?.openDrawer()),
     );
   }
 }

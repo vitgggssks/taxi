@@ -416,7 +416,7 @@ class _RoutePainter extends CustomPainter {
         ..strokeWidth = 5
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..color = const Color(0xFF15181B),
+        ..color = const Color(0xFF00A663),
     );
   }
 

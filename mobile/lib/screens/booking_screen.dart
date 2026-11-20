@@ -14,16 +14,18 @@ import 'shell.dart';
 
 /// Екран замовлення поїздки: адреси, клас авто, опції, оплата, плюс/мінус.
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key, required this.api, required this.session});
+  const BookingScreen({super.key, required this.api, required this.session, this.onMenu});
 
   final ApiClient api;
   final Session session;
+  final VoidCallback? onMenu;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
 }
 
 class _BookingScreenState extends State<BookingScreen> {
+  bool _details = false;
   bool _loading = true;
   String? _error;
   String? _quoteError;
@@ -341,11 +343,13 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_details) return _buildHome();
     return Scaffold(
       appBar: RukhAppBar(
         title: 'Куди їдемо?',
         subtitle: _city?.name ?? 'РУХ',
         actions: [
+          IconButton(tooltip: 'До мапи', onPressed: () => setState(() => _details = false), icon: const Icon(Icons.map_outlined)),
           IconButton(
             tooltip: 'Оновити',
             onPressed: _loading ? null : _bootstrap,
@@ -397,6 +401,84 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildHome() {
+    const green = Color(0xFF00A663);
+    final selected = _points.whereType<GeoAddress>().toList();
+    final points = selected.map((p) => MapPoint(p.lat, p.lng)).toList();
+    final quote = _selectedQuote;
+    CarClass? selectedClass;
+    for (final cls in _classes) {
+      if (cls.id == _selectedClassId) selectedClass = cls;
+    }
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: LayoutBuilder(builder: (context, constraints) {
+        final focus = points.isEmpty ? null : MapFocus.fit(points, viewport: Size(constraints.maxWidth, constraints.maxHeight * .55));
+        return Stack(children: [
+          Positioned.fill(child: OsmMap(
+            center: focus?.center ?? const MapPoint(50.4501, 30.5234),
+            zoom: focus?.zoom ?? 12,
+            markers: [
+              if (points.isNotEmpty) MapMarker(point: points.first, color: green, icon: Icons.circle),
+              if (points.length > 1) MapMarker(point: points.last, color: const Color(0xFF263238), icon: Icons.circle),
+            ],
+            route: points,
+            height: constraints.maxHeight,
+          )),
+          Positioned(top: MediaQuery.paddingOf(context).top + 12, left: 16,
+            child: Material(color: Colors.white, shape: const CircleBorder(), elevation: 3,
+              child: IconButton(tooltip: 'Меню', onPressed: widget.onMenu, icon: const Icon(Icons.menu), iconSize: 28))),
+          if (_loading) const Positioned(top: 80, right: 20, child: CircularProgressIndicator()),
+          if (_error != null) Positioned(top: 90, left: 16, right: 16,
+            child: Material(color: Colors.white, borderRadius: BorderRadius.circular(12),
+              child: ListTile(title: Text(_error!), trailing: IconButton(onPressed: _bootstrap, icon: const Icon(Icons.refresh))))),
+          Align(alignment: Alignment.bottomCenter, child: Container(
+            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+              boxShadow: [BoxShadow(color: Color(0x22000000), blurRadius: 12)]),
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight * .7),
+            child: SafeArea(top: false, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 7),
+              Container(width: 26, height: 4, decoration: BoxDecoration(color: const Color(0xFFC5D1D8), borderRadius: BorderRadius.circular(4))),
+              for (int i = 0; i < _points.length; i++)
+                InkWell(onTap: () => _editPoint(i), child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+                  child: Row(children: [
+                    Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, color: i == 0 ? green : const Color(0xFF263238)),
+                      child: const Center(child: CircleAvatar(radius: 5, backgroundColor: Colors.white))),
+                    const SizedBox(width: 20),
+                    Expanded(child: Text(_points[i]?.label ?? (i == 0 ? 'Звідки...' : i == _points.length - 1 ? 'Куди...' : 'Зупинка'),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 20, color: _points[i] == null ? const Color(0xFF909DA6) : const Color(0xFF263238)))),
+                    if (i == _points.length - 1 && _points.length == 2)
+                      IconButton(tooltip: 'Додати зупинку', onPressed: _addStop, icon: const Icon(Icons.add_circle_outline, color: Color(0xFF8B9AA3)))
+                    else if (i > 0 && i < _points.length - 1)
+                      IconButton(tooltip: 'Видалити зупинку', onPressed: () => _removePoint(i), icon: const Icon(Icons.close)),
+                  ]))),
+              const Divider(height: 1, color: Color(0xFFE0E7EA)),
+              Padding(padding: const EdgeInsets.fromLTRB(16, 12, 0, 12), child: Row(children: [
+                const Icon(Icons.local_taxi, color: Color(0xFFFFC527), size: 37),
+                const SizedBox(width: 12),
+                Expanded(child: InkWell(onTap: () => setState(() => _details = true), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [Flexible(child: Text(selectedClass?.name ?? 'Клас авто', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, color: Color(0xFF263238)))), const Icon(Icons.keyboard_arrow_down)]),
+                  Text(selectedClass == null ? 'Оберіть клас' : 'до ${selectedClass.seats} пасажирів', style: const TextStyle(color: Color(0xFF7B8991), fontSize: 14)),
+                ]))),
+                Text(quote == null ? '—' : money(quote.totalCents), style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700, color: Color(0xFF263238))),
+                const SizedBox(width: 14),
+                Material(color: const Color(0xFFFFC527), borderRadius: const BorderRadius.horizontal(left: Radius.circular(40)),
+                  child: InkWell(onTap: () => setState(() => _details = true), borderRadius: const BorderRadius.horizontal(left: Radius.circular(40)),
+                    child: const SizedBox(width: 68, height: 58, child: Icon(Icons.arrow_forward, color: Color(0xFF263238))))),
+              ])),
+              if (_activeOrder != null) TextButton(onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderScreen(api: widget.api, session: widget.session, orderId: _activeOrder!.id)));
+                if (mounted) await _loadActiveOrder();
+              }, child: const Text('Відкрити активне замовлення')),
+            ]))),
+          )),
+        ]);
+      }),
     );
   }
 

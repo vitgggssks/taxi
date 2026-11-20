@@ -6,7 +6,6 @@ import '../core/models.dart';
 import '../core/session.dart';
 import '../theme.dart';
 import 'order_screen.dart';
-import 'shell.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key, required this.api, required this.session});
@@ -65,11 +64,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: RukhAppBar(
-        title: 'Історія',
-        subtitle: '${_orders.length} замовлень',
-        actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
-      ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(backgroundColor: Colors.white, title: const Text('Мої поїздки', style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(
         children: [
           SizedBox(
@@ -109,10 +106,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             ? ListView(
                                 padding: const EdgeInsets.all(32),
                                 children: const [
-                                  Icon(Icons.receipt_long_outlined, size: 42, color: RukhTheme.muted),
+                                  Icon(Icons.bookmark_border, size: 90, color: Color(0xFFEFF5F8)),
                                   SizedBox(height: 12),
-                                  Text('Замовлень ще немає',
-                                      textAlign: TextAlign.center, style: TextStyle(color: RukhTheme.muted)),
+                                  Text('Список моїх поїздок порожній',
+                                      textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF263238), fontSize: 20, fontWeight: FontWeight.w600)),
                                 ],
                               )
                             : ListView.separated(
